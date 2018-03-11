@@ -1,7 +1,7 @@
 /**
  *  Unification algorithm for type inference
  */
-package thesis.preprocess.types
+package thesis.utils
 
 sealed class AlgebraicTerm {
     abstract fun hasVariable(variableTerm: VariableTerm): Boolean

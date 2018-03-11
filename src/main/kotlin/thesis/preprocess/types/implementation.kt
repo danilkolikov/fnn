@@ -4,7 +4,9 @@
 package thesis.preprocess.types
 
 import thesis.preprocess.ast.*
+import thesis.preprocess.expressions.*
 import thesis.preprocess.types.algorithms.*
+import thesis.utils.AlgebraicTerm
 
 fun LambdaProgram.inferType(): InferenceContext {
     val context = InferenceContext()
@@ -24,8 +26,8 @@ fun LambdaProgram.inferType(): InferenceContext {
 }
 
 data class InferenceContext(
-        override val typeDefinitions: MutableMap<TypeName, TypeExpression> = mutableMapOf(),
-        override val lambdaDefinitions: MutableMap<LambdaName, LambdaExpression> = mutableMapOf(),
+        override val typeDefinitions: MutableMap<TypeName, AlgebraicType> = mutableMapOf(),
+        override val lambdaDefinitions: MutableMap<LambdaName, Lambda> = mutableMapOf(),
 
         override val typeScope: MutableMap<TypeName, AlgebraicTerm> = mutableMapOf(),
         override val expressionScope: MutableMap<String, AlgebraicTerm> = mutableMapOf(),
@@ -33,7 +35,7 @@ data class InferenceContext(
         override val nameGenerator: NameGenerator = NameGenerator(),
         override val nameMap: MutableMap<LambdaName, LambdaName> = mutableMapOf()
 ) : AlgebraicTypeInferenceContext, LambdaTermsTypeInferenceContext {
-    val types: Map<LambdaName, SimpleType>
+    val types: Map<LambdaName, Type>
         get() = expressionScope
                 .map { (type, value) -> type to value.toSimpleType() }
                 .toMap()

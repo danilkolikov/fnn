@@ -3,9 +3,9 @@
  */
 package thesis.preprocess.types
 
-import thesis.preprocess.ast.Expression
-import thesis.preprocess.ast.LambdaName
-import thesis.preprocess.ast.TypeName
+import thesis.preprocess.expressions.LambdaName
+import thesis.preprocess.expressions.TypeName
+import thesis.preprocess.expressions.Expression
 
 class TypeInferenceError(expression: Expression, context: TypeInferenceContext) : Exception(
         "Can't infer type of $expression in context $context"

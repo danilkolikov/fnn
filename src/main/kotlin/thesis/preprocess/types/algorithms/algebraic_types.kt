@@ -5,17 +5,23 @@
 package thesis.preprocess.types.algorithms
 
 import thesis.preprocess.ast.*
+import thesis.preprocess.expressions.AlgebraicType
+import thesis.preprocess.expressions.TypeName
 import thesis.preprocess.types.*
+import thesis.utils.AlgebraicEquation
+import thesis.utils.AlgebraicTerm
+import thesis.utils.FunctionTerm
+import thesis.utils.VariableTerm
 
 interface AlgebraicTypeInferenceContext : TypeInferenceContext {
 
-    val typeDefinitions: MutableMap<TypeName, TypeExpression>
+    val typeDefinitions: MutableMap<TypeName, AlgebraicType>
 
 }
 
-class AlgebraicTypeInferenceAlgorithm : TypeInferenceAlgorithm<AlgebraicTypeInferenceContext, TypeExpression>() {
+class AlgebraicTypeInferenceAlgorithm : TypeInferenceAlgorithm<AlgebraicTypeInferenceContext, AlgebraicType>() {
 
-    override fun Definition<TypeExpression>.getLocalContext(context: AlgebraicTypeInferenceContext): TypeInferenceLocalContext<AlgebraicTypeInferenceContext, TypeExpression> {
+    override fun Definition<AlgebraicType>.getLocalContext(context: AlgebraicTypeInferenceContext): TypeInferenceLocalContext<AlgebraicTypeInferenceContext, AlgebraicType> {
         val definedTypes = context.typeScope.keys + setOf(name)
         val definedExpressions = context.expressionScope.keys
         val scope = context.typeScope + (expression.getConstructors() - definedTypes)
@@ -31,7 +37,7 @@ class AlgebraicTypeInferenceAlgorithm : TypeInferenceAlgorithm<AlgebraicTypeInfe
         )
     }
 
-    override fun TypeInferenceLocalContext<AlgebraicTypeInferenceContext, TypeExpression>.updateGlobalContext(): AlgebraicTypeInferenceContext {
+    override fun TypeInferenceLocalContext<AlgebraicTypeInferenceContext, AlgebraicType>.updateGlobalContext(): AlgebraicTypeInferenceContext {
         globalContext.typeDefinitions[definition.name] = definition.expression
         globalContext.typeScope[definition.name] = VariableTerm(definition.name)
 
@@ -44,21 +50,21 @@ class AlgebraicTypeInferenceAlgorithm : TypeInferenceAlgorithm<AlgebraicTypeInfe
         return globalContext
     }
 
-    private fun TypeExpression.getConstructors(): Set<String> = when (this) {
-        is TypeLiteral -> setOf(name)
-        is TypeProduct -> setOf(name)
-        is TypeSum -> operands.flatMap { it.getConstructors() }.toSet()
+    private fun AlgebraicType.getConstructors(): Set<String> = when (this) {
+        is AlgebraicType.Literal -> setOf(name)
+        is AlgebraicType.Product -> setOf(name)
+        is AlgebraicType.Sum -> operands.flatMap { it.getConstructors() }.toSet()
     }
 
-    override fun TypeExpression.getEquations(
-            localContext: TypeInferenceLocalContext<AlgebraicTypeInferenceContext, TypeExpression>
+    override fun AlgebraicType.getEquations(
+            localContext: TypeInferenceLocalContext<AlgebraicTypeInferenceContext, AlgebraicType>
     ): Pair<AlgebraicTerm, List<AlgebraicEquation>> = when (this) {
-        is TypeLiteral -> {
+        is AlgebraicType.Literal -> {
             val resultType = localContext.scope[name]
                     ?: throw UnknownTypeError(name, localContext.globalContext)
             resultType to listOf()
         }
-        is TypeSum -> {
+        is AlgebraicType.Sum -> {
             val resultType = VariableTerm(localContext.globalContext.nameGenerator.next("t"))
             val operands = operands.map { it.getEquations(localContext) }
             val resultNames = operands.map { it.first }
@@ -70,7 +76,7 @@ class AlgebraicTypeInferenceAlgorithm : TypeInferenceAlgorithm<AlgebraicTypeInfe
                 )
             }
         }
-        is TypeProduct -> {
+        is AlgebraicType.Product -> {
             val productResult = VariableTerm(localContext.globalContext.nameGenerator.next("t"))
             val constructorType = localContext.scope[name]
                     ?: throw UnknownTypeError(name, localContext.globalContext)

@@ -4,6 +4,7 @@
 package thesis.preprocess.types.algorithms
 
 import thesis.preprocess.ast.LambdaTypeDeclaration
+import thesis.preprocess.expressions.Type
 import thesis.preprocess.types.*
 
 class LambdaTypeDeclarationProcessor : LambdaProgramExpressionProcessor<TypeInferenceContext, LambdaTypeDeclaration> {
@@ -20,8 +21,8 @@ class LambdaTypeDeclarationProcessor : LambdaProgramExpressionProcessor<TypeInfe
         return context
     }
 
-    private fun SimpleType.getUndefinedTypes(context: TypeInferenceContext): Set<String> = when (this) {
-        is TypeTerminal -> if (context.typeScope.containsKey(name)) emptySet() else setOf(name)
-        is TypeFunction -> listOf(from, to).flatMap { it.getUndefinedTypes(context) }.toSet()
+    private fun Type.getUndefinedTypes(context: TypeInferenceContext): Set<String> = when (this) {
+        is Type.Literal -> if (context.typeScope.containsKey(name)) emptySet() else setOf(name)
+        is Type.Function -> listOf(from, to).flatMap { it.getUndefinedTypes(context) }.toSet()
     }
 }

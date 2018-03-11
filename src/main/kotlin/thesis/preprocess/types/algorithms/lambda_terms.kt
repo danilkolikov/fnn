@@ -4,20 +4,26 @@
 package thesis.preprocess.types.algorithms
 
 import thesis.preprocess.ast.*
+import thesis.preprocess.expressions.Lambda
+import thesis.preprocess.expressions.LambdaName
 import thesis.preprocess.types.*
+import thesis.utils.AlgebraicEquation
+import thesis.utils.AlgebraicTerm
+import thesis.utils.FunctionTerm
+import thesis.utils.VariableTerm
 
 interface LambdaTermsTypeInferenceContext : TypeInferenceContext {
 
-    val lambdaDefinitions: MutableMap<LambdaName, LambdaExpression>
+    val lambdaDefinitions: MutableMap<LambdaName, Lambda>
 
     val nameMap: MutableMap<LambdaName, LambdaName>
 }
 
-class LambdaTermsInferenceAlgorithm : TypeInferenceAlgorithm<LambdaTermsTypeInferenceContext, LambdaExpression>() {
+class LambdaTermsInferenceAlgorithm : TypeInferenceAlgorithm<LambdaTermsTypeInferenceContext, Lambda>() {
 
-    override fun Definition<LambdaExpression>.getLocalContext(
+    override fun Definition<Lambda>.getLocalContext(
             context: LambdaTermsTypeInferenceContext
-    ): TypeInferenceLocalContext<LambdaTermsTypeInferenceContext, LambdaExpression> {
+    ): TypeInferenceLocalContext<LambdaTermsTypeInferenceContext, Lambda> {
         val definedTypes = context.typeScope.keys
         val definedExpressions = context.expressionScope.keys + setOf(name)
         val nameMap = mutableMapOf<String, LambdaName>()
@@ -33,7 +39,7 @@ class LambdaTermsInferenceAlgorithm : TypeInferenceAlgorithm<LambdaTermsTypeInfe
         )
     }
 
-    override fun TypeInferenceLocalContext<LambdaTermsTypeInferenceContext, LambdaExpression>.updateGlobalContext()
+    override fun TypeInferenceLocalContext<LambdaTermsTypeInferenceContext, Lambda>.updateGlobalContext()
             : LambdaTermsTypeInferenceContext {
         globalContext.lambdaDefinitions[definition.name] = definition.expression
 
@@ -43,21 +49,21 @@ class LambdaTermsInferenceAlgorithm : TypeInferenceAlgorithm<LambdaTermsTypeInfe
         return globalContext
     }
 
-    private fun LambdaExpression.renameArguments(
+    private fun Lambda.renameArguments(
             renameMap: Map<LambdaName, String>,
             nameMap: MutableMap<String, LambdaName>,
             nameGenerator: NameGenerator
-    ): LambdaExpression = when (this) {
-        is LambdaLiteral -> renameMap[name]?.let { LambdaLiteral(it) } ?: this
-        is LambdaTypedExpression -> LambdaTypedExpression(
+    ): Lambda = when (this) {
+        is Lambda.Literal -> renameMap[name]?.let { Lambda.Literal(it) } ?: this
+        is Lambda.TypedExpression -> Lambda.TypedExpression(
                 expression.renameArguments(renameMap, nameMap, nameGenerator),
                 type
         )
-        is LambdaApplication -> LambdaApplication(
+        is Lambda.Application -> Lambda.Application(
                 function.renameArguments(renameMap, nameMap, nameGenerator),
                 arguments.map { it.renameArguments(renameMap, nameMap, nameGenerator) }
         )
-        is LambdaAbstraction -> {
+        is Lambda.Abstraction -> {
             val newNames = mutableMapOf<LambdaName, String>()
             val newArguments = mutableListOf<String>()
             arguments.forEach {
@@ -66,29 +72,29 @@ class LambdaTermsInferenceAlgorithm : TypeInferenceAlgorithm<LambdaTermsTypeInfe
                 newNames[it] = newName
                 newArguments.add(newName)
             }
-            LambdaAbstraction(
+            Lambda.Abstraction(
                     newArguments,
                     expression.renameArguments(renameMap + newNames, nameMap, nameGenerator)
             )
         }
     }
 
-    override fun LambdaExpression.getEquations(
-            localContext: TypeInferenceLocalContext<LambdaTermsTypeInferenceContext, LambdaExpression>
+    override fun Lambda.getEquations(
+            localContext: TypeInferenceLocalContext<LambdaTermsTypeInferenceContext, Lambda>
     ): Pair<AlgebraicTerm, List<AlgebraicEquation>> = when (this) {
-        is LambdaLiteral -> {
+        is Lambda.Literal -> {
             val resultType = localContext.scope[name]
                     ?: throw UnknownExpressionError(name, localContext.globalContext)
             resultType to listOf()
         }
-        is LambdaTypedExpression -> {
+        is Lambda.TypedExpression -> {
             val (resultType, equations) = expression.getEquations(localContext)
             resultType to equations + listOf(AlgebraicEquation(
                     resultType,
                     type.toAlgebraicTerm()
             ))
         }
-        is LambdaAbstraction -> {
+        is Lambda.Abstraction -> {
             val resultType = VariableTerm(localContext.globalContext.nameGenerator.next("t"))
             val (type, equations) = expression.getEquations(localContext)
             val term = arguments.foldRight(type, { name, res ->
@@ -102,7 +108,7 @@ class LambdaTermsInferenceAlgorithm : TypeInferenceAlgorithm<LambdaTermsTypeInfe
                     term
             ))
         }
-        is LambdaApplication -> {
+        is Lambda.Application -> {
             val resultType = VariableTerm(localContext.globalContext.nameGenerator.next("t"))
             val (funcType, funcEq) = function.getEquations(localContext)
             val argumentsEq = arguments.map { it.getEquations(localContext) }

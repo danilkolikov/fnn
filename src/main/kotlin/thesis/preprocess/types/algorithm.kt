@@ -3,11 +3,12 @@
  */
 package thesis.preprocess.types
 
-import thesis.preprocess.ast.*
-import thesis.utils.Edge
-import thesis.utils.UndirectedGraph
-
-internal const val FUNCTION_SIGN = "→"
+import thesis.preprocess.ast.Definition
+import thesis.preprocess.expressions.LambdaName
+import thesis.preprocess.ast.LambdaProgramExpression
+import thesis.preprocess.expressions.TypeName
+import thesis.preprocess.expressions.Expression
+import thesis.utils.*
 
 interface TypeInferenceContext {
     val nameGenerator: NameGenerator
