@@ -1,74 +1,69 @@
+/**
+ * AST for Lambda Program
+ */
 package thesis.preprocess.ast
+
+import thesis.preprocess.types.SimpleType
 
 
 typealias TypeName = String
 
 typealias LambdaName = String
 
-/**
- * AST for Lambda Program
- */
-
 data class LambdaProgram(val expressions: List<LambdaProgramExpression>)
 
-interface WithNames {
-    fun getNames(): Set<TypeName>
-}
+sealed class LambdaProgramExpression
 
-sealed class LambdaProgramExpression : WithNames {
+sealed class Expression
+
+sealed class Definition<out E : Expression> : LambdaProgramExpression() {
     abstract val name: String
+    abstract val expression: E
 }
 
 data class LambdaDefinition(
         override val name: LambdaName,
-        val expression: LambdaExpression
-) : LambdaProgramExpression() {
-    override fun getNames() = setOf(name) + expression.getNames()
-}
+        override val expression: LambdaExpression
+) : Definition<LambdaExpression>()
 
 data class TypeDefinition(
         override val name: TypeName,
-        val expression: TypeExpression
-) : LambdaProgramExpression() {
-    override fun getNames() = setOf(name) + expression.getNames()
-}
+        override val expression: TypeExpression
+) : Definition<TypeExpression>()
 
-sealed class TypeExpression : WithNames
+sealed class TypeExpression : Expression()
 
-data class TypeLiteral(val name: TypeName) : TypeExpression() {
-    override fun getNames() = setOf(name)
-}
+data class TypeLiteral(val name: TypeName) : TypeExpression()
 
 data class TypeSum(
         val operands: List<TypeExpression>
-) : TypeExpression() {
-    override fun getNames() = operands.flatMap { it.getNames() }.toSet()
-}
+) : TypeExpression()
 
 data class TypeProduct(
         val name: String,
         val operands: List<TypeExpression>
-) : TypeExpression() {
-    override fun getNames() = setOf(name) + operands.flatMap { it.getNames() }.toSet()
-}
+) : TypeExpression()
 
-sealed class LambdaExpression : WithNames
+sealed class LambdaExpression : Expression()
 
-data class LambdaLiteral(val name: LambdaName) : LambdaExpression() {
-    override fun getNames() = setOf(name)
-}
+data class LambdaLiteral(val name: LambdaName) : LambdaExpression()
+
+data class LambdaTypedExpression(
+        val expression: LambdaExpression,
+        val type: SimpleType
+) : LambdaExpression()
 
 data class LambdaAbstraction(
         val arguments: List<LambdaName>,
         val expression: LambdaExpression
-) : LambdaExpression() {
-    override fun getNames() = arguments.toSet() + expression.getNames()
-}
+) : LambdaExpression()
 
 data class LambdaApplication(
         val function: LambdaExpression,
         val arguments: List<LambdaExpression>
-) : LambdaExpression() {
-    override fun getNames() = (listOf(function) + arguments).flatMap { it.getNames() }.toSet()
-}
+) : LambdaExpression()
 
+data class LambdaTypeDeclaration(
+        val name: LambdaName,
+        val type: SimpleType
+) : LambdaProgramExpression()

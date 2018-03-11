@@ -6,7 +6,9 @@ grammar LambdaProgram;
 
 program : expression* EOF;
 
-expression : typeDefinition | lambdaDefinition ;
+expression : typeDefinition
+    | lambdaTypeDeclaration
+    | lambdaDefinition ;
 
 typeDefinition : TYPE_KEYWORD typeLiteral EQUALS typeExpression;
 
@@ -19,9 +21,18 @@ typeLiteral : name=TYPE_NAME;
 
 lambdaDefinition : name=lambdaName EQUALS lambdaExpression;
 
-lambdaExpression : terminal=lambdaLiteral
+lambdaExpression : lambdaApplicationOperand+;
+
+lambdaApplicationOperand : terminal=lambdaLiteral
     | LAMBDA lambdaName+ DOT body=lambdaExpression
-    | LBR lambdaExpression+ RBR;
+    | LBR expr=lambdaExpression SEMICOLON type=typeDeclaration RBR
+    | LBR inner=lambdaExpression RBR;
+
+lambdaTypeDeclaration : TYPE_KEYWORD name=lambdaName EQUALS typeDeclaration;
+
+typeDeclaration : typeDeclarationOperand (ARROW typeDeclaration)*;
+
+typeDeclarationOperand : typeLiteral | LBR typeDeclaration RBR;
 
 lambdaName : EXPR_NAME;
 lambdaLiteral : EXPR_NAME | TYPE_NAME;
@@ -35,6 +46,8 @@ EXPR_NAME : LOWER_CASE NAME_CHARACTERS*;
 
 // Keywords
 TYPE_KEYWORD : '@type';
+
+// Special characters
 EQUALS : '=';
 LBR : '(';
 RBR : ')';
@@ -42,6 +55,8 @@ COMMA : ',';
 TYPE_PLUS : '|';
 LAMBDA : '\\';
 DOT : '.';
+SEMICOLON : ':';
+ARROW : '->';
 
 fragment UPPER_CASE : [A-Z];
 fragment LOWER_CASE : [a-z];

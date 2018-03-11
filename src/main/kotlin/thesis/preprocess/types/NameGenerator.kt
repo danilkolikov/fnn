@@ -1,7 +1,13 @@
 package thesis.preprocess.types
 
-class NameGenerator(private val prefix: String) {
-    private var counter = 0
+/**
+ * Generates unique names for types and variables
+ */
+class NameGenerator {
+    private val counters = mutableMapOf<String, Int>()
 
-    fun next() = prefix + counter++
+    fun next(prefix: String): String {
+        counters.putIfAbsent(prefix, 0)
+        return "." + prefix + counters.compute(prefix, {_, value -> value!! + 1})
+    }
 }

@@ -1,8 +1,7 @@
-package thesis.preprocess.types
-
 /**
  *  Unification algorithm for type inference
  */
+package thesis.preprocess.types
 
 sealed class AlgebraicTerm {
     abstract fun hasVariable(variableTerm: VariableTerm): Boolean
@@ -70,6 +69,10 @@ private fun deconstructFunctions(equations: List<AlgebraicEquation>) = equations
 private fun replaceOccurrences(equations: List<AlgebraicEquation>): List<AlgebraicEquation> {
     var result = equations
     while (true) {
+        val wrong = result.find { e -> e.left is VariableTerm && e.left != e.right && e.right.hasVariable(e.left) }
+        if (wrong != null) {
+            throw UnificationError(wrong.left, wrong.right)
+        }
         val toReplace = result.find { e ->
             e.left is VariableTerm && e.left != e.right && result.any {
                 it != e && (it.left.hasVariable(e.left) || it.right.hasVariable(e.left))
@@ -78,10 +81,10 @@ private fun replaceOccurrences(equations: List<AlgebraicEquation>): List<Algebra
         val map = mapOf(toReplace.left as VariableTerm to toReplace.right)
         result = result.map {
             if (it == toReplace) it else
-            AlgebraicEquation(
-                    it.left.replace(map),
-                    it.right.replace(map)
-            )
+                AlgebraicEquation(
+                        it.left.replace(map),
+                        it.right.replace(map)
+                )
         }
     }
     return result

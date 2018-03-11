@@ -1,12 +1,14 @@
-package thesis.preprocess.ast
-
-import thesis.LambdaProgramParser
-
 /**
  * Extensions for ANTLR-generated parser
  *
  * Transform generated AST tree to more convenient one
  */
+package thesis.preprocess.ast
+
+import thesis.LambdaProgramParser
+import thesis.preprocess.types.SimpleType
+import thesis.preprocess.types.TypeFunction
+import thesis.preprocess.types.TypeTerminal
 
 fun LambdaProgramParser.ProgramContext.toAst() = LambdaProgram(
         expression().map { it.toAst() }
@@ -18,6 +20,9 @@ fun LambdaProgramParser.ExpressionContext.toAst(): LambdaProgramExpression {
     }
     if (lambdaDefinition() != null) {
         return lambdaDefinition().toAst()
+    }
+    if (lambdaTypeDeclaration() != null) {
+        return lambdaTypeDeclaration().toAst()
     }
     throw IllegalStateException("Unexpected AST node")
 }
@@ -56,8 +61,28 @@ fun LambdaProgramParser.LambdaDefinitionContext.toAst(): LambdaDefinition {
 }
 
 fun LambdaProgramParser.LambdaExpressionContext.toAst(): LambdaExpression {
+    val operands = lambdaApplicationOperand().map { it.toAst() }
+    if (operands.size == 1) {
+        return operands.first()
+    }
+    return LambdaApplication(
+            operands.first(),
+            operands.drop(1)
+    )
+}
+
+fun LambdaProgramParser.LambdaApplicationOperandContext.toAst(): LambdaExpression {
     if (terminal != null) {
         return LambdaLiteral(terminal.text)
+    }
+    if (expr != null && type != null) {
+        return LambdaTypedExpression(
+                expr.toAst(),
+                type.toAst()
+        )
+    }
+    if (inner != null) {
+        return inner.toAst()
     }
     if (lambdaName() != null && body != null) {
         return LambdaAbstraction(
@@ -65,11 +90,31 @@ fun LambdaProgramParser.LambdaExpressionContext.toAst(): LambdaExpression {
                 body.toAst()
         )
     }
-    if (LBR() != null && lambdaExpression() != null && RBR() != null) {
-        return LambdaApplication(
-                lambdaExpression().first().toAst(),
-                lambdaExpression().drop(1).map { it.toAst() }
-        )
+    throw IllegalStateException("Unexpected AST node")
+}
+
+fun LambdaProgramParser.TypeDeclarationContext.toAst(): SimpleType {
+    val first = typeDeclarationOperand().toAst()
+    val rest = typeDeclaration().map { it.toAst() }
+    if (rest.isEmpty()) {
+        return first
+    }
+    return (listOf(first) + rest).reduceRight({ t, res -> TypeFunction(t, res) })
+}
+
+fun LambdaProgramParser.TypeDeclarationOperandContext.toAst(): SimpleType {
+    if (typeLiteral() != null) {
+        return TypeTerminal(typeLiteral().text)
+    }
+    if (typeDeclaration() != null) {
+        return typeDeclaration().toAst()
     }
     throw IllegalStateException("Unexpected AST node")
+}
+
+fun LambdaProgramParser.LambdaTypeDeclarationContext.toAst(): LambdaTypeDeclaration {
+    return LambdaTypeDeclaration(
+            lambdaName().text,
+            typeDeclaration().toAst()
+    )
 }
