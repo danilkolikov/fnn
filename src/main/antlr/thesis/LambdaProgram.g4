@@ -24,6 +24,7 @@ lambdaDefinition : name=lambdaName EQUALS lambdaExpression;
 lambdaExpression : lambdaApplicationOperand+;
 
 lambdaApplicationOperand : terminal=lambdaLiteral
+    | LEARN_KEYWORD
     | LAMBDA lambdaName+ DOT body=lambdaExpression
     | LBR expr=lambdaExpression SEMICOLON type=typeDeclaration RBR
     | LBR inner=lambdaExpression RBR;
@@ -46,6 +47,7 @@ EXPR_NAME : LOWER_CASE NAME_CHARACTERS*;
 
 // Keywords
 TYPE_KEYWORD : '@type';
+LEARN_KEYWORD : '@learn';
 
 // Special characters
 EQUALS : '=';

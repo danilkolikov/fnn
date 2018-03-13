@@ -12,6 +12,8 @@ sealed class Lambda : Expression {
             val type: Type
     ) : Lambda()
 
+    object Trainable : Lambda()
+
     data class Abstraction(
             val arguments: List<LambdaName>,
             val expression: Lambda

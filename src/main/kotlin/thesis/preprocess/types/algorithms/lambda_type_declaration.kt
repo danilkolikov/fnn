@@ -5,24 +5,26 @@ package thesis.preprocess.types.algorithms
 
 import thesis.preprocess.ast.LambdaTypeDeclaration
 import thesis.preprocess.expressions.Type
-import thesis.preprocess.types.*
+import thesis.preprocess.types.TypeContext
+import thesis.preprocess.types.TypeContextUpdater
+import thesis.preprocess.types.UnknownTypeError
+import thesis.preprocess.types.toAlgebraicTerm
 
-class LambdaTypeDeclarationProcessor : LambdaProgramExpressionProcessor<TypeInferenceContext, LambdaTypeDeclaration> {
-    override fun processExpression(
-            context: TypeInferenceContext,
-            expression: LambdaTypeDeclaration
-    ): TypeInferenceContext {
+class LambdaTypeDeclarationContextUpdater(
+        override val typeContext: LambdaTermsTypeContext
+) : TypeContextUpdater<TypeContext, LambdaTypeDeclaration> {
+
+    override fun updateContext(expression: LambdaTypeDeclaration) {
         val (name, type) = expression
-        val undefinedTypes = type.getUndefinedTypes(context)
+        val undefinedTypes = type.getUndefinedTypes()
         if (!undefinedTypes.isEmpty()) {
-            throw UnknownTypeError(undefinedTypes, context)
+            throw UnknownTypeError(undefinedTypes, typeContext)
         }
-        context.expressionScope[name] = type.toAlgebraicTerm()
-        return context
+        typeContext.expressionScope[name] = type.toAlgebraicTerm()
     }
 
-    private fun Type.getUndefinedTypes(context: TypeInferenceContext): Set<String> = when (this) {
-        is Type.Literal -> if (context.typeScope.containsKey(name)) emptySet() else setOf(name)
-        is Type.Function -> listOf(from, to).flatMap { it.getUndefinedTypes(context) }.toSet()
+    private fun Type.getUndefinedTypes(): Set<String> = when (this) {
+        is Type.Literal -> if (typeContext.typeScope.containsKey(name)) emptySet() else setOf(name)
+        is Type.Function -> listOf(from, to).flatMap { it.getUndefinedTypes() }.toSet()
     }
 }

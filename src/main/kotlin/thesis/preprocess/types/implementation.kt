@@ -8,35 +8,35 @@ import thesis.preprocess.expressions.*
 import thesis.preprocess.types.algorithms.*
 import thesis.utils.AlgebraicTerm
 
-fun LambdaProgram.inferType(): InferenceContext {
-    val context = InferenceContext()
-    val algebraicTypeInferenceAlgorithm = AlgebraicTypeInferenceAlgorithm()
-    val lambdaTermsTypeInferenceAlgorithm = LambdaTermsInferenceAlgorithm()
-    val lambdaTypeDeclarationProcessor = LambdaTypeDeclarationProcessor()
+fun LambdaProgram.inferType(): Context {
+    val context = Context()
+    val algebraicTypeInferenceAlgorithm = AlgebraicTypeInferenceAlgorithm(context)
+    val lambdaTermsTypeInferenceAlgorithm = LambdaTermsInferenceAlgorithm(context)
+    val lambdaTypeDeclarationContextUpdater = LambdaTypeDeclarationContextUpdater(context)
 
     expressions.forEach {
         when (it) {
-            is TypeDefinition -> algebraicTypeInferenceAlgorithm.processExpression(context, it)
-            is LambdaDefinition -> lambdaTermsTypeInferenceAlgorithm.processExpression(context, it)
-            is LambdaTypeDeclaration -> lambdaTypeDeclarationProcessor.processExpression(context, it)
+            is TypeDefinition -> algebraicTypeInferenceAlgorithm.updateContext(it)
+            is LambdaDefinition -> lambdaTermsTypeInferenceAlgorithm.updateContext(it)
+            is LambdaTypeDeclaration -> lambdaTypeDeclarationContextUpdater.updateContext(it)
         }
     }
 
     return context
 }
 
-data class InferenceContext(
+data class Context(
         override val typeDefinitions: MutableMap<TypeName, AlgebraicType> = mutableMapOf(),
         override val lambdaDefinitions: MutableMap<LambdaName, Lambda> = mutableMapOf(),
 
+        override val typeConstructors: MutableMap<TypeName, AlgebraicTerm> = mutableMapOf(),
         override val typeScope: MutableMap<TypeName, AlgebraicTerm> = mutableMapOf(),
         override val expressionScope: MutableMap<String, AlgebraicTerm> = mutableMapOf(),
 
-        override val nameGenerator: NameGenerator = NameGenerator(),
-        override val nameMap: MutableMap<LambdaName, LambdaName> = mutableMapOf()
-) : AlgebraicTypeInferenceContext, LambdaTermsTypeInferenceContext {
+        override val nameGenerator: NameGenerator = NameGenerator()
+) : AlgebraicTypeContext, LambdaTermsTypeContext {
     val types: Map<LambdaName, Type>
-        get() = expressionScope
+        get() = (typeConstructors + expressionScope)
                 .map { (type, value) -> type to value.toSimpleType() }
                 .toMap()
 

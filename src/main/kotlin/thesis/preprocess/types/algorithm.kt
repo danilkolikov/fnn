@@ -4,70 +4,76 @@
 package thesis.preprocess.types
 
 import thesis.preprocess.ast.Definition
-import thesis.preprocess.expressions.LambdaName
 import thesis.preprocess.ast.LambdaProgramExpression
-import thesis.preprocess.expressions.TypeName
 import thesis.preprocess.expressions.Expression
 import thesis.utils.*
 
-interface TypeInferenceContext {
+interface TypeContext {
     val nameGenerator: NameGenerator
-
-    val typeScope: MutableMap<TypeName, AlgebraicTerm>
-    val expressionScope: MutableMap<LambdaName, AlgebraicTerm>
 }
 
-data class TypeInferenceLocalContext<out C : TypeInferenceContext, out E : Expression>(
-        val globalContext: C,
-        val definition: Definition<E>,
+interface LocalTypeContext<out E : LambdaProgramExpression> {
+    val expression: E
 
-        val nameMap: Map<String, String>,
-
-        val definedTypes: Set<TypeName>,
-        val definedExpressions: Set<LambdaName>,
-
-        val scope: Map<LambdaName, AlgebraicTerm>,
-
-        var solution: Map<VariableTerm, AlgebraicTerm> = mapOf()
-)
-
-interface LambdaProgramExpressionProcessor<C : TypeInferenceContext, in E : LambdaProgramExpression> {
-
-    fun processExpression(context: C, expression: E): C
+    val typeScope: Set<String>
+    val scope: Map<String, AlgebraicTerm>
+    var solution: Map<VariableTerm, AlgebraicTerm>
 }
 
-abstract class TypeInferenceAlgorithm<C : TypeInferenceContext, E : Expression>
-    : LambdaProgramExpressionProcessor<C, Definition<E>> {
+interface ContextUpdater<in E : LambdaProgramExpression> {
+    fun updateContext(expression: E)
+}
 
-    abstract fun Definition<E>.getLocalContext(context: C): TypeInferenceLocalContext<C, E>
+interface TypeContextUpdater<out C : TypeContext, in E : LambdaProgramExpression>
+    : ContextUpdater<E> {
+
+    val typeContext: C
+}
+
+interface TypeContextUpdaterWithLocal<
+        out C : TypeContext,
+        E : LambdaProgramExpression,
+        L : LocalTypeContext<E>
+        > : TypeContextUpdater<C, E> {
+
+    fun getLocalContext(expression: E): L
+
+    fun updateContext(localContext: L)
+
+    override fun updateContext(expression: E) {
+        val localContext = getLocalContext(expression)
+        updateContext(localContext)
+    }
+}
+
+abstract class TypeInferenceAlgorithm<
+        out C : TypeContext,
+        E : Expression,
+        L : LocalTypeContext<Definition<E>>
+        > : TypeContextUpdaterWithLocal<C, Definition<E>, L> {
 
     abstract fun E.getEquations(
-            localContext: TypeInferenceLocalContext<C, E>
+            localContext: L
     ): Pair<AlgebraicTerm, List<AlgebraicEquation>>
 
-    abstract fun TypeInferenceLocalContext<C, E>.updateGlobalContext(): C
-
-    override fun processExpression(context: C, expression: Definition<E>): C {
-        val localContext = expression.getLocalContext(context)
-        val newDefinition = localContext.definition
+    open fun getEquationsSystem(localContext: L): List<AlgebraicEquation> {
+        val newDefinition = localContext.expression
         val (type, equations) = newDefinition.expression.getEquations(localContext)
-        val system = equations + listOf(AlgebraicEquation(
+        return equations + listOf(AlgebraicEquation(
                 VariableTerm(newDefinition.name),
                 type
-        )) + (context.expressionScope[newDefinition.name]?.let {
-            // TODO: fix this crutch for type declaration
-            listOf(AlgebraicEquation(
-                    VariableTerm(newDefinition.name),
-                    it
-            ))
-        } ?: emptyList())
-
-        val solution = solveSystem(system)
-        localContext.solution = localContext.renameTypes(solution)
-        return localContext.updateGlobalContext()
+        ))
     }
 
-    private fun TypeInferenceLocalContext<C, E>.renameTypes(
+    override fun updateContext(expression: Definition<E>) {
+        val localContext = getLocalContext(expression)
+        val system = getEquationsSystem(localContext)
+        val solution = solveSystem(system)
+        localContext.solution = localContext.renameTypes(solution)
+        updateContext(localContext)
+    }
+
+    private fun L.renameTypes(
             solution: Map<VariableTerm, AlgebraicTerm>
     ): Map<VariableTerm, AlgebraicTerm> {
         // Types with equal names form undirected graph
@@ -79,11 +85,11 @@ abstract class TypeInferenceAlgorithm<C : TypeInferenceContext, E : Expression>
             }
         }
         val graph = UndirectedGraph(edges)
-        val components = graph.getConnectedComponents(definedTypes)
-        val distinctTypes = definedTypes.map { components[it] }.toSet()
-        if (distinctTypes.size != definedTypes.size) {
+        val components = graph.getConnectedComponents(typeScope)
+        val distinctTypes = typeScope.map { components[it] }.toSet()
+        if (distinctTypes.size != typeScope.size) {
             // Some types were clashed during unification, that's definitely a type error
-            throw TypeInferenceError(definition.expression, globalContext)
+            throw TypeInferenceError(expression.expression, typeContext)
         }
         val connectedComponents = components
                 .filter { (name, value) -> name != value }
@@ -93,7 +99,7 @@ abstract class TypeInferenceAlgorithm<C : TypeInferenceContext, E : Expression>
                 .toMap()
         return connectedComponents + solution
                 .filterKeys {
-                    !connectedComponents.containsKey(it) && !definedTypes.contains(it.name)
+                    !connectedComponents.containsKey(it) && !typeScope.contains(it.name)
                 }
                 .mapValues { (_, value) -> value.replace(connectedComponents) }
     }
