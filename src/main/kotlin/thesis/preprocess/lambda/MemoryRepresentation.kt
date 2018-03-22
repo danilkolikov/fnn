@@ -1,7 +1,7 @@
 package thesis.preprocess.lambda
 
 import thesis.preprocess.expressions.TypeName
-import thesis.preprocess.typeinfo.TypeInformation
+import thesis.preprocess.memory.TypeMemoryInformation
 
 sealed class MemoryRepresentation {
     data class Object(
@@ -11,6 +11,6 @@ sealed class MemoryRepresentation {
     data class Constructor(
             val typeName: TypeName,
             val typeSize: Int,
-            val info: TypeInformation.ConstructorInformation
+            val info: TypeMemoryInformation.ConstructorInformation
     ) : MemoryRepresentation()
 }

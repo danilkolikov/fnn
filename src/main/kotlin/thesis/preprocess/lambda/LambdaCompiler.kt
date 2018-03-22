@@ -1,80 +1,80 @@
 package thesis.preprocess.lambda
 
-import thesis.preprocess.ContextBuilder
-import thesis.preprocess.ContextUpdaterByLocal
-import thesis.preprocess.LocalTypeContext
-import thesis.preprocess.expressions.AlgebraicType
+import thesis.preprocess.Processor
 import thesis.preprocess.expressions.Lambda
+import thesis.preprocess.expressions.LambdaName
 import thesis.preprocess.expressions.TypeName
-import thesis.preprocess.typeinfo.TypeInfoExtractor
+import thesis.preprocess.results.InMemoryExpressions
+import thesis.preprocess.results.InMemoryType
+import thesis.preprocess.results.InferredLambda
 
 /**
  * Compiles typed lambda-expressions to executable lambda-expressions
  *
  * @author Danil Kolikov
  */
-class LambdaCompiler(
-        val typeInfoContext: TypeInfoExtractor.Context
-) : ContextBuilder<LambdaCompiler.Context> {
+class LambdaCompiler : Processor<InMemoryExpressions, Map<LambdaName, List<CompiledLambda>>> {
 
-    override val context = Context()
+    override fun process(data: InMemoryExpressions): Map<LambdaName, List<CompiledLambda>> {
+        val memoryRepresentation = TypeDefinitionCompiler().process(data.typeDefinitions)
+        return LambdaDefinitionCompiler(memoryRepresentation).process(data.lambdaDefinitions)
+    }
 
-    override val typeDefinitionContextUpdater = TypeDefinitionCompiler(context)
-
-    override val lambdaDefinitionContextUpdater = LambdaDefinitionCompiler(context)
-
-    data class Context(
-            val memoryRepresentations: MutableMap<TypeName, MemoryRepresentation> = mutableMapOf(),
-            val expressions: MutableMap<String, CompiledLambda> = mutableMapOf()
-    )
-
-    inner class TypeDefinitionCompiler(
-            override val context: Context
-    ) : ContextUpdaterByLocal<Context, AlgebraicType> {
-        override fun updateContext(localContext: LocalTypeContext<AlgebraicType>) {
-            val typeInformation = typeInfoContext.info[localContext.name]!!
-            typeInformation.constructors.forEach { name, info ->
-                val expression = if (info.argumentOffsets.isEmpty()) {
-                    // It's a object
-                    val data = Array(typeInformation.typeSize, { it == info.offset })
-                    MemoryRepresentation.Object(typeInformation.name, data)
-                } else {
-                    // It's a function
-                    MemoryRepresentation.Constructor(typeInformation.name, typeInformation.typeSize, info)
+    class TypeDefinitionCompiler : Processor<Map<TypeName, InMemoryType>, Map<TypeName, MemoryRepresentation>> {
+        override fun process(data: Map<TypeName, InMemoryType>): Map<TypeName, MemoryRepresentation> {
+            val constructors = mutableMapOf<TypeName, MemoryRepresentation>()
+            data.forEach { name, value ->
+                val memoryInfo = value.memoryInfo
+                memoryInfo.constructors.mapValues { (_, info) ->
+                    if (info.argumentOffsets.isEmpty()) {
+                        // It's a object
+                        val representation = Array(memoryInfo.typeSize, { it == info.offset })
+                        MemoryRepresentation.Object(name, representation)
+                    } else {
+                        // It's a function
+                        MemoryRepresentation.Constructor(name, memoryInfo.typeSize, info)
+                    }
+                }.forEach { constructorName, info ->
+                    constructors[constructorName] = info
                 }
-                context.memoryRepresentations[name] = expression
             }
+            return constructors
         }
     }
 
-    inner class LambdaDefinitionCompiler(
-            override val context: Context
-    ) : ContextUpdaterByLocal<Context, Lambda> {
-        override fun updateContext(localContext: LocalTypeContext<Lambda>) {
-            val compiled = localContext.expression.compile()
-            context.expressions[localContext.name] = compiled
+    class LambdaDefinitionCompiler(
+            private val memoryRepresentations: Map<TypeName, MemoryRepresentation>
+    ) : Processor<Map<LambdaName, InferredLambda>, Map<LambdaName, List<CompiledLambda>>> {
+        override fun process(data: Map<LambdaName, InferredLambda>): Map<LambdaName, List<CompiledLambda>> {
+            val result = mutableMapOf<LambdaName, List<CompiledLambda>>()
+            data.forEach { name, lambda ->
+                val compiled = lambda.expressions.map { it.compile(result) }
+                result[name] = compiled
+            }
+            return result
         }
 
-        private fun Lambda.compile(): CompiledLambda = when (this) {
+        private fun Lambda.compile(compiled: Map<LambdaName, List<CompiledLambda>>): CompiledLambda = when (this) {
             is Lambda.Trainable -> throw IllegalStateException(
                     "Trainable should be made Literal"
             )
             is Lambda.Literal -> {
-                val memory = context.memoryRepresentations[name]
-                val defined = context.expressions[name]
+                val memory = memoryRepresentations[name]
+                val defined = compiled[name]
                 if (memory != null) {
                     // Some representation of object
                     when (memory) {
                         is MemoryRepresentation.Object -> CompiledLambda.Object(name, memory.representation)
                         is MemoryRepresentation.Constructor -> CompiledLambda.ObjectFunction(name, memory)
                     }
-                } else defined ?: CompiledLambda.Variable(name)
+                    // ToDo: Introduce guards to remove this index
+                } else defined?.get(0) ?: CompiledLambda.Variable(name)
             }
-            is Lambda.TypedExpression -> expression.compile()
-            is Lambda.Abstraction -> CompiledLambda.AnonymousFunction(arguments, expression.compile())
+            is Lambda.TypedExpression -> expression.compile(compiled)
+            is Lambda.Abstraction -> CompiledLambda.AnonymousFunction(arguments, expression.compile(compiled))
             is Lambda.Application -> CompiledLambda.FunctionCall(
-                    function.compile(),
-                    arguments.map { it.compile() }
+                    function.compile(compiled),
+                    arguments.map { it.compile(compiled) }
             )
         }
     }

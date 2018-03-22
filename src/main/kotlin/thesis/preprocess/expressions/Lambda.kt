@@ -9,6 +9,8 @@ sealed class Lambda : Expression {
 
     data class Literal(val name: LambdaName) : Lambda() {
         override fun getBoundVariables() = emptySet<String>()
+
+        override fun toString() = name
     }
 
     data class TypedExpression(
@@ -16,10 +18,14 @@ sealed class Lambda : Expression {
             val type: Type
     ) : Lambda() {
         override fun getBoundVariables() = expression.getBoundVariables()
+
+        override fun toString() = "($expression : $type)"
     }
 
     object Trainable : Lambda() {
         override fun getBoundVariables() = emptySet<String>()
+
+        override fun toString() = "@learn"
     }
 
     data class Abstraction(
@@ -27,6 +33,8 @@ sealed class Lambda : Expression {
             val expression: Lambda
     ) : Lambda() {
         override fun getBoundVariables() = arguments.toSet() + expression.getBoundVariables()
+
+        override fun toString() = "(\\${arguments.joinToString(" ")}. $expression)"
     }
 
     data class Application(
@@ -35,6 +43,8 @@ sealed class Lambda : Expression {
     ) : Lambda() {
         override fun getBoundVariables() = function.getBoundVariables() +
                 arguments.flatMap { it.getBoundVariables() }
+
+        override fun toString() = "($function ${arguments.joinToString(" ")})"
     }
 }
 

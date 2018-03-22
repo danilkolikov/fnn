@@ -3,28 +3,29 @@
  */
 package thesis.utils
 
-sealed class AlgebraicTerm {
+import thesis.preprocess.expressions.Replaceable
+
+sealed class AlgebraicTerm : Replaceable<AlgebraicTerm> {
     abstract fun hasVariable(variableTerm: VariableTerm): Boolean
-    abstract fun replace(map: Map<VariableTerm, AlgebraicTerm>): AlgebraicTerm
     abstract fun getVariables(): Set<VariableTerm>
 }
 
 data class VariableTerm(val name: String) : AlgebraicTerm() {
     override fun hasVariable(variableTerm: VariableTerm) = variableTerm == this
     override fun getVariables() = setOf(this)
-    override fun replace(map: Map<VariableTerm, AlgebraicTerm>) = map[this] ?: this
+    override fun replace(map: Map<String, AlgebraicTerm>) = map[this.name] ?: this
 
 }
 
 data class FunctionTerm(val name: String, val arguments: List<AlgebraicTerm>) : AlgebraicTerm() {
     override fun hasVariable(variableTerm: VariableTerm) = arguments.any { it.hasVariable(variableTerm) }
     override fun getVariables() = arguments.flatMap { it.getVariables() }.toSet()
-    override fun replace(map: Map<VariableTerm, AlgebraicTerm>) = FunctionTerm(name, arguments.map { it.replace(map) })
+    override fun replace(map: Map<String, AlgebraicTerm>) = FunctionTerm(name, arguments.map { it.replace(map) })
 }
 
 data class AlgebraicEquation(val left: AlgebraicTerm, val right: AlgebraicTerm)
 
-fun solveSystem(system: List<AlgebraicEquation>): Map<VariableTerm, AlgebraicTerm> {
+fun solveSystem(system: List<AlgebraicEquation>): Map<String, AlgebraicTerm> {
     var newSystem: List<AlgebraicEquation> = ArrayList(system)
     while (true) {
         val switched = switchVariables(newSystem)
@@ -38,7 +39,7 @@ fun solveSystem(system: List<AlgebraicEquation>): Map<VariableTerm, AlgebraicTer
     }
     return newSystem
             .filter { it.left is VariableTerm }
-            .map { (it.left as VariableTerm) to it.right }
+            .map { (it.left as VariableTerm).name to it.right }
             .toMap()
 }
 
@@ -78,7 +79,7 @@ private fun replaceOccurrences(equations: List<AlgebraicEquation>): List<Algebra
                 it != e && (it.left.hasVariable(e.left) || it.right.hasVariable(e.left))
             }
         } ?: break
-        val map = mapOf(toReplace.left as VariableTerm to toReplace.right)
+        val map = mapOf((toReplace.left as VariableTerm).name to toReplace.right)
         result = result.map {
             if (it == toReplace) it else
                 AlgebraicEquation(

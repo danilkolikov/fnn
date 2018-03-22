@@ -1,15 +1,16 @@
 package thesis
 
-import org.antlr.v4.runtime.ANTLRInputStream
-import org.antlr.v4.runtime.CommonTokenStream
-import thesis.preprocess.Preprocessor
-import thesis.preprocess.ast.toAst
+import thesis.preprocess.ast.ExpressionSorter
+import thesis.preprocess.ast.Parser
 import thesis.preprocess.lambda.LambdaCompiler
-import thesis.preprocess.typeinfo.TypeInfoExtractor
+import thesis.preprocess.memory.TypeMemoryProcessor
+import thesis.preprocess.renaming.ExpressionRenamingProcessor
+import thesis.preprocess.renaming.NameGenerator
+import thesis.preprocess.types.TypeInferenceProcessor
 
 
 fun main(args: Array<String>) {
-    val ast = LambdaProgramParser(CommonTokenStream(LambdaProgramLexer(ANTLRInputStream(
+    val ast = Parser().process(
             """
                 @type Bar = Z | T | Q
                 @type Foo = MkFoo Bar
@@ -26,14 +27,21 @@ fun main(args: Array<String>) {
                 test = fst (fst (fst Q T Z) T Q) Z (fst Q Q Q)
                 """
     )
-    ))).program().toAst()
-    val typeInfoExtractor = TypeInfoExtractor()
-    val lambdaCompiler = LambdaCompiler(typeInfoExtractor.context)
-    val preprocessor = Preprocessor(listOf(typeInfoExtractor, lambdaCompiler))
+    println(ast)
 
-    val inferenceContext = preprocessor.process(ast)
-    println(inferenceContext.types)
+    val sorted = ExpressionSorter().process(ast)
+    println(sorted)
 
-    println(typeInfoExtractor.context)
-    println(lambdaCompiler.context)
+    val nameGenerator = NameGenerator()
+    val renamed = ExpressionRenamingProcessor(nameGenerator).process(sorted)
+    println(renamed)
+
+    val inferred = TypeInferenceProcessor(nameGenerator).process(renamed)
+    println(inferred)
+
+    val memory = TypeMemoryProcessor().process(inferred)
+    println(memory)
+
+    val compiled = LambdaCompiler().process(memory)
+    println(compiled["test"]?.get(0)?.execute())
 }

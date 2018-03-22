@@ -11,6 +11,8 @@ sealed class AlgebraicType : Expression, Replaceable<AlgebraicType> {
         override fun getConstructors() = setOf(name)
 
         override fun replace(map: Map<String, AlgebraicType>) = map[name] ?: this
+
+        override fun toString() = name
     }
 
     data class Sum(
@@ -19,6 +21,8 @@ sealed class AlgebraicType : Expression, Replaceable<AlgebraicType> {
         override fun getConstructors() = operands.flatMap { it.getConstructors() }.toSet()
 
         override fun replace(map: Map<String, AlgebraicType>) = Sum(operands.map { it.replace(map) })
+
+        override fun toString() = "(${operands.joinToString(" + ")})"
     }
 
     data class Product(
@@ -28,5 +32,7 @@ sealed class AlgebraicType : Expression, Replaceable<AlgebraicType> {
         override fun getConstructors() = setOf(name)
 
         override fun replace(map: Map<String, AlgebraicType>) = Product(name, operands.map { it.replace(map) })
+
+        override fun toString() = "($name ${operands.joinToString(" ")})"
     }
 }

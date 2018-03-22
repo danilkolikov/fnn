@@ -1,4 +1,4 @@
-package thesis.preprocess.types
+package thesis.preprocess.renaming
 
 /**
  * Generates unique names for types and variables
@@ -10,8 +10,6 @@ class NameGenerator {
         counters.putIfAbsent(prefix, 0)
         return NAME_PREFIX + prefix + counters.compute(prefix, { _, value -> value!! + 1})
     }
-
-    fun isGenerated(name: String) = name.startsWith(NAME_PREFIX)
 
     companion object {
         const val NAME_PREFIX = "."

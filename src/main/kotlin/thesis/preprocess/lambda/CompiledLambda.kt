@@ -2,6 +2,7 @@ package thesis.preprocess.lambda
 
 import thesis.preprocess.expressions.Replaceable
 import thesis.preprocess.expressions.TypeName
+import java.util.*
 
 /**
  * Executable representation of lambda-expression.
@@ -18,6 +19,8 @@ sealed class CompiledLambda : Replaceable<CompiledLambda> {
     class Object(val name: TypeName, val data: Array<Boolean>) : CompiledLambda() {
         override fun execute() = this
         override fun replace(map: Map<String, CompiledLambda>) = this
+
+        override fun toString() = "[$name: ${Arrays.toString(data)}]"
     }
 
     class ObjectFunction(
@@ -38,11 +41,15 @@ sealed class CompiledLambda : Replaceable<CompiledLambda> {
                 Object(memoryRepresentation.typeName, data)
             } else this
         }
+
+        override fun toString() = "[$name: ... → ${memoryRepresentation.typeName}]"
     }
 
     class Variable(val name: String) : CompiledLambda() {
         override fun execute() = this
         override fun replace(map: Map<String, CompiledLambda>) = map[name] ?: this
+
+        override fun toString() = name
     }
 
     class FunctionCall(val function: CompiledLambda, val arguments: List<CompiledLambda>) : CompiledLambda() {
@@ -59,6 +66,8 @@ sealed class CompiledLambda : Replaceable<CompiledLambda> {
                 function.replace(map),
                 arguments.map { it.replace(map) }
         )
+
+        override fun toString() = "($function ${arguments.joinToString(" ")})"
     }
 
     class AnonymousFunction(
@@ -73,5 +82,7 @@ sealed class CompiledLambda : Replaceable<CompiledLambda> {
             val replaceMap = this.arguments.zip(arguments).toMap()
             return body.replace(replaceMap)
         }
+
+        override fun toString() = "(\\${arguments.joinToString(" ")}. $body)"
     }
 }
