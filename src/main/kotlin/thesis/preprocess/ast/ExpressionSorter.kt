@@ -1,7 +1,9 @@
 package thesis.preprocess.ast
 
 import thesis.preprocess.Processor
+import thesis.preprocess.expressions.LambdaWithPatterns
 import thesis.preprocess.results.SimpleLambdaImpl
+import thesis.preprocess.results.SimpleTypeDeclarationImpl
 import thesis.preprocess.results.SimpleTypeImpl
 import thesis.preprocess.results.SortedExpressions
 
@@ -14,14 +16,16 @@ class ExpressionSorter : Processor<LambdaProgram, SortedExpressions> {
 
     override fun process(data: LambdaProgram) = SortedExpressions(
             data.expressions.filterIsInstance(TypeDefinition::class.java)
-                    .map { it.name to SimpleTypeImpl(it.expression) }
-                    .toMap(LinkedHashMap()),
+                    .map { SimpleTypeImpl(it.name, it.expression) },
             data.expressions.filterIsInstance(LambdaTypeDeclaration::class.java)
-                    .map { it.name to it.type }
-                    .toMap(LinkedHashMap()),
+                    .map { SimpleTypeDeclarationImpl(it.name, it.type) },
             data.expressions.filterIsInstance(LambdaDefinition::class.java)
                     .groupByTo(LinkedHashMap(), { it.name })
-                    .mapValuesTo(LinkedHashMap(), { SimpleLambdaImpl(it.value.map { it.expression }) })
+                    .map { (name, list) ->
+                        SimpleLambdaImpl(
+                                name,
+                                list.map { LambdaWithPatterns(it.patterns, it.expression) }
+                        )
+                    }
     )
-
 }

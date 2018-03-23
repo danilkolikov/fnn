@@ -14,15 +14,15 @@ class ExpressionRenamingProcessor(
 ) : Processor<SortedExpressions, RenamedExpressions> {
     override fun process(data: SortedExpressions): RenamedExpressions {
         return RenamedExpressions(
-                data.typeDefinitions.mapValuesTo(
-                        LinkedHashMap(),
-                        { AlgebraicTypeRenamingProcessor(nameGenerator).process(it.value) }
-                ),
-                data.typeDeclarations,
-                data.lambdaDefinitions.mapValuesTo(
-                        LinkedHashMap(),
-                        { LambdaRenamingProcessor(nameGenerator).process(it.value) }
-                )
+                data.typeDefinitions.map {
+                    AlgebraicTypeRenamingProcessor(nameGenerator).process(it)
+                },
+                data.typeDeclarations.map {
+                    TypeDeclarationRenamingProcessor(nameGenerator).process(it)
+                },
+                data.lambdaDefinitions.map {
+                    LambdaRenamingProcessor(nameGenerator).process(it)
+                }
         )
     }
 }

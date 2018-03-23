@@ -4,7 +4,7 @@ grammar LambdaProgram;
     package thesis;
 }
 
-program : expression* EOF;
+program : (expression SEMICOLON)* EOF;
 
 expression : typeDefinition
     | lambdaTypeDeclaration
@@ -19,14 +19,14 @@ typeSumOperand : typeLiteral (typeSumOperand)*?
 
 typeLiteral : name=TYPE_NAME;
 
-lambdaDefinition : name=lambdaName EQUALS lambdaExpression;
+lambdaDefinition : name=lambdaName patternExpression* EQUALS lambdaExpression;
 
 lambdaExpression : lambdaApplicationOperand+;
 
 lambdaApplicationOperand : terminal=lambdaLiteral
     | LEARN_KEYWORD
     | LAMBDA lambdaName+ DOT body=lambdaExpression
-    | LBR expr=lambdaExpression SEMICOLON type=typeDeclaration RBR
+    | LBR expr=lambdaExpression COLON type=typeDeclaration RBR
     | LBR inner=lambdaExpression RBR;
 
 lambdaTypeDeclaration : TYPE_KEYWORD name=lambdaName EQUALS typeDeclaration;
@@ -34,6 +34,10 @@ lambdaTypeDeclaration : TYPE_KEYWORD name=lambdaName EQUALS typeDeclaration;
 typeDeclaration : typeDeclarationOperand (ARROW typeDeclaration)*;
 
 typeDeclarationOperand : typeLiteral | LBR typeDeclaration RBR;
+
+patternExpression : lambdaName
+    | name=typeLiteral
+    | LBR constructor=typeLiteral patternExpression+ RBR;
 
 lambdaName : EXPR_NAME;
 lambdaLiteral : EXPR_NAME | TYPE_NAME;
@@ -57,8 +61,9 @@ COMMA : ',';
 TYPE_PLUS : '|';
 LAMBDA : '\\';
 DOT : '.';
-SEMICOLON : ':';
+COLON : ':';
 ARROW : '->';
+SEMICOLON : ';';
 
 fragment UPPER_CASE : [A-Z];
 fragment LOWER_CASE : [a-z];

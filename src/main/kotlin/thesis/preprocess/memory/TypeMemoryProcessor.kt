@@ -15,15 +15,16 @@ import thesis.preprocess.results.InferredExpressions
 class TypeMemoryProcessor : Processor<InferredExpressions, InMemoryExpressions> {
 
     override fun process(data: InferredExpressions): InMemoryExpressions {
-        val memoryInformation = mutableMapOf<TypeName, InMemoryType>()
-        data.typeDefinitions.forEach { name, value ->
-            val scope = memoryInformation.mapValues { (_, type) -> type.memoryInfo }
+        val memoryInformation = mutableListOf<InMemoryType>()
+        val scope = mutableMapOf<TypeName, TypeMemoryInformation>()
+        data.typeDefinitions.map { value ->
             val typeMemoryInformation = TypeMemoryInformation(
-                    name,
+                    value.name,
                     value.constructors,
                     scope
             )
-            memoryInformation[name] = InMemoryTypeImpl(value, typeMemoryInformation)
+            scope[value.name] = typeMemoryInformation
+            memoryInformation.add(InMemoryTypeImpl(value, typeMemoryInformation))
         }
         return InMemoryExpressions(
                 memoryInformation,

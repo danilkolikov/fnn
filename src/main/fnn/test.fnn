@@ -1,0 +1,15 @@
+@type Bar = Z | T | Q;
+@type Foo = MkFoo Bar;
+@type Zap = MkZap Foo Foo Bar;
+
+@type fst = Bar -> Bar -> Bar -> Bar;
+fst Q y z = Z;
+fst Z y z = T;
+fst T y z = Q;
+
+@type Bool = True | False;
+
+if True x y = x;
+if False x y = y;
+
+main = if False T (if True Q Z);

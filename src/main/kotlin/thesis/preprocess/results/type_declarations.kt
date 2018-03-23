@@ -5,9 +5,11 @@
  */
 package thesis.preprocess.results
 
+import thesis.preprocess.expressions.LambdaName
 import thesis.preprocess.expressions.Type
 
 interface SimpleTypeDeclaration {
+    val name: LambdaName
     val type: Type
 }
 
@@ -18,6 +20,7 @@ interface RenamedTypeDeclaration : SimpleTypeDeclaration {
 // Implementations
 
 data class SimpleTypeDeclarationImpl(
+        override val name: LambdaName,
         override val type: Type
 ) : SimpleTypeDeclaration
 

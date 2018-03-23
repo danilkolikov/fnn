@@ -5,28 +5,24 @@
  */
 package thesis.preprocess.results
 
-import thesis.preprocess.expressions.LambdaName
-import thesis.preprocess.expressions.Type
-import thesis.preprocess.expressions.TypeName
-
 data class SortedExpressions(
-        val typeDefinitions: Map<TypeName, SimpleType>,
-        val typeDeclarations: Map<LambdaName, Type>,
-        val lambdaDefinitions: Map<LambdaName, SimpleLambda>
+        val typeDefinitions: List<SimpleType>,
+        val typeDeclarations: List<SimpleTypeDeclaration>,
+        val lambdaDefinitions: List<SimpleLambda>
 )
 
 data class RenamedExpressions(
-        val typeDefinitions: Map<TypeName, RenamedType>,
-        val typeDeclarations: Map<LambdaName, Type>,
-        val lambdaDefinitions: Map<LambdaName, RenamedLambda>
+        val typeDefinitions: List<RenamedType>,
+        val typeDeclarations: List<RenamedTypeDeclaration>,
+        val lambdaDefinitions: List<RenamedLambda>
 )
 
 data class InferredExpressions(
-        val typeDefinitions: Map<TypeName, InferredType>,
-        val lambdaDefinitions: Map<LambdaName, InferredLambda>
+        val typeDefinitions: List<InferredType>,
+        val lambdaDefinitions: List<InferredLambda>
 )
 
 data class InMemoryExpressions(
-        val typeDefinitions: Map<TypeName, InMemoryType>,
-        val lambdaDefinitions: Map<LambdaName, InferredLambda>
+        val typeDefinitions: List<InMemoryType>,
+        val lambdaDefinitions: List<InferredLambda>
 )

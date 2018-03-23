@@ -12,17 +12,27 @@ class TypeMemoryInformation(
         informationScope: Map<TypeName, TypeMemoryInformation>
 ) {
 
-    val constructors: Map<TypeName, ConstructorInformation>
+    val constructors: List<ConstructorInformation>
     val typeSize: Int
 
-    data class ConstructorInformation(val offset: Int, val argumentOffsets: List<Int>)
+    data class ConstructorInformation(
+            val name: TypeName,
+            val offset: Int,
+            val argumentOffsets: List<ArgumentInformation>
+    )
+
+    data class ArgumentInformation(
+            val type: TypeName,
+            val size: Int,
+            val offset: Int
+    )
 
     override fun toString(): String {
         return "TypeMemoryInformation(name='$name', constructors=$constructors, typeSize=$typeSize)"
     }
 
     init {
-        val constructorsMap = mutableMapOf<TypeName, ConstructorInformation>()
+        val constructorsList = mutableListOf<ConstructorInformation>()
         var currentOffset = 0
         for ((constructorName, type) in constructors) {
             val arguments = mutableListOf<TypeName>()
@@ -31,27 +41,35 @@ class TypeMemoryInformation(
                 arguments.add((curType.from as Type.Literal).name)
                 curType = curType.to
             }
-            if (arguments.isEmpty()) {
+            val constructorInformation = if (arguments.isEmpty()) {
                 // Type literal
-                constructorsMap[constructorName] = ConstructorInformation(
+                ConstructorInformation(
+                        constructorName,
                         currentOffset++,
                         emptyList()
                 )
-                continue
+            } else {
+                val argumentOffsets = mutableListOf<ArgumentInformation>()
+                val startOffset = currentOffset
+                for (argument in arguments) {
+                    val size = informationScope[argument]!!.typeSize
+                    argumentOffsets.add(ArgumentInformation(
+                            argument,
+                            size,
+                            currentOffset
+                    ))
+                    currentOffset += size
+                }
+                ConstructorInformation(
+                        constructorName,
+                        startOffset,
+                        argumentOffsets
+                )
             }
-            val argumentOffsets = mutableListOf<Int>()
-            val startOffset = currentOffset
-            for (argument in arguments) {
-                val size = informationScope[argument]!!.typeSize
-                argumentOffsets.add(currentOffset)
-                currentOffset += size
-            }
-            constructorsMap[constructorName] = ConstructorInformation(
-                    startOffset,
-                    argumentOffsets
-            )
+            constructorsList.add(constructorInformation)
+
         }
-        this.constructors = constructorsMap
+        this.constructors = constructorsList
         this.typeSize = currentOffset
     }
 }

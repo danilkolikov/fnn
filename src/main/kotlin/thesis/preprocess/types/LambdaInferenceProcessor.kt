@@ -3,13 +3,10 @@ package thesis.preprocess.types
 import thesis.preprocess.Processor
 import thesis.preprocess.expressions.Lambda
 import thesis.preprocess.expressions.LambdaName
+import thesis.preprocess.expressions.Pattern
 import thesis.preprocess.expressions.Type
-import thesis.preprocess.expressions.TypeName
 import thesis.preprocess.renaming.NameGenerator
-import thesis.preprocess.results.InferredLambda
-import thesis.preprocess.results.InferredLambdaImpl
-import thesis.preprocess.results.InferredType
-import thesis.preprocess.results.RenamedLambda
+import thesis.preprocess.results.*
 import thesis.utils.AlgebraicEquation
 import thesis.utils.AlgebraicTerm
 import thesis.utils.FunctionTerm
@@ -23,36 +20,61 @@ import java.util.*
  */
 class LambdaInferenceProcessor(
         private val nameGenerator: NameGenerator,
-        private val typeScope: Map<TypeName, InferredType>,
-        private val typeDeclarations: Map<LambdaName, Type>
-) : Processor<Map<LambdaName, RenamedLambda>, Map<LambdaName, InferredLambda>> {
-    override fun process(data: Map<LambdaName, RenamedLambda>): Map<LambdaName, InferredLambda> {
-        val result = mutableMapOf<LambdaName, InferredLambda>()
-        val definedTypes = typeScope.keys
-        val constructors = typeScope.values
+        private val typeScope: List<InferredType>,
+        private val typeDeclarations: List<RenamedTypeDeclaration>
+) : Processor<List<RenamedLambda>, List<InferredLambda>> {
+    override fun process(data: List<RenamedLambda>): List<InferredLambda> {
+        val result = mutableListOf<InferredLambda>()
+
+        val definedTypes = typeScope.map { it.name }.toSet()
+        val constructors = typeScope
                 .flatMap { it.constructors.entries.map { it.toPair() } }
                 .map { (name, type) -> name to type.toAlgebraicTerm() }
                 .toMap()
         val lambdaType = mutableMapOf<LambdaName, Type>()
-        data.forEach { name, value ->
-
+        data.forEach { value ->
+            val name = value.name
             val scope = (constructors + lambdaType.mapValues { (_, value) -> value.toAlgebraicTerm() })
                     .toMutableMap()
 
             // If type on function is already declared, add it to scope
-            typeDeclarations[name]?.let { type -> scope[name] = type.toAlgebraicTerm() }
+            typeDeclarations.find { it.name == name }?.let { scope[name] = it.type.toAlgebraicTerm() }
 
             val function = VariableTerm(name)
             val expressionTypes = IdentityHashMap<Lambda, Type>()
-            value.expressions.forEach { expression ->
-                val localScope = scope + expression.getBoundVariables()
+            value.expressions.forEach { (patterns, lambda) ->
+
+                val patternsVariables = patterns.flatMap { it.getVariables() }
+                val localScope = scope + (patternsVariables + lambda.getBoundVariables())
                         .map { it to VariableTerm(it) }
                         .toMap()
+
+                // Infer types for patterns
+                val system = mutableListOf<AlgebraicEquation>()
+                val patternsTypes = mutableListOf<AlgebraicTerm>()
+
+                patterns.forEach { pattern ->
+                    val (resultType, equations) = pattern.getEquations(localScope, nameGenerator)
+                    system.addAll(equations)
+                    patternsTypes.add(resultType)
+                }
+
                 val localExpressionsTypes = IdentityHashMap<Lambda, AlgebraicTerm>()
-                val (resultType, equations) = expression.getEquations(localScope, localExpressionsTypes, value.nameMap)
-                val system = equations + listOf(AlgebraicEquation(function, resultType))
+                val (resultType, equations) = lambda.getEquations(localScope, localExpressionsTypes, value.nameMap)
+
+                // Function type (that uses pattern arguments)
+                val functionType = patternsTypes.foldRight(resultType, { arg, res -> FunctionTerm(
+                        FUNCTION_SIGN,
+                        listOf(arg, res)
+                )})
+                system.addAll(equations)
+                system.add(AlgebraicEquation(
+                        function,
+                        functionType
+                ))
+
                 val solution = system.inferTypes(definedTypes)
-                val type = solution[name] ?: throw TypeInferenceError(expression)
+                val type = solution[name] ?: throw TypeInferenceError(lambda)
 
                 // Type of the first expression with such name is considered correct
                 scope.putIfAbsent(name, type)
@@ -67,9 +89,39 @@ class LambdaInferenceProcessor(
             lambdaType[name] = type
 
             val inferred = InferredLambdaImpl(value, type, expressionTypes)
-            result[name] = inferred
+            result.add(inferred)
         }
         return result
+    }
+
+    private fun Pattern.getEquations(
+            scope: Map<String, AlgebraicTerm>,
+            nameGenerator: NameGenerator
+    ): Pair<AlgebraicTerm, List<AlgebraicEquation>> = when (this) {
+        is Pattern.Variable -> {
+            val returnType = scope[name] ?: throw UnknownExpressionError(name)
+            returnType to emptyList()
+        }
+        is Pattern.Object -> {
+            val returnType = scope[name] ?: throw UnknownExpressionError(name)
+            returnType to emptyList()
+        }
+        is Pattern.Constructor -> {
+            val returnType = VariableTerm(nameGenerator.next(name))
+            val expectedType = scope[name] ?: throw UnknownExpressionError(name)
+            val arguments = arguments.map { it.getEquations(scope, nameGenerator) }
+            val argumentTypes = arguments.map { it.first }
+            val equations = arguments.flatMap { it.second }
+            val gotType = argumentTypes.foldRight<AlgebraicTerm, AlgebraicTerm>(
+                    returnType,
+                    { arg, res -> FunctionTerm(FUNCTION_SIGN, listOf(arg, res)) }
+            )
+
+            returnType to (equations + listOf(AlgebraicEquation(
+                    expectedType,
+                    gotType
+            )))
+        }
     }
 
     private fun Lambda.getEquations(

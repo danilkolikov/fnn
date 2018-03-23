@@ -19,18 +19,20 @@ import thesis.utils.VariableTerm
  */
 class AlgebraicTypeInferenceProcessor(
         private val nameGenerator: NameGenerator
-) : Processor<Map<TypeName, RenamedType>, Map<TypeName, InferredType>> {
+) : Processor<List<RenamedType>, List<InferredType>> {
 
-    override fun process(data: Map<TypeName, RenamedType>): Map<TypeName, InferredType> {
-        val result = mutableMapOf<TypeName, InferredType>()
-        data.forEach { name, expression ->
-            val scope = (result.keys + expression.type.getConstructors())
+    override fun process(data: List<RenamedType>): List<InferredType> {
+        val result = mutableListOf<InferredType>()
+        val definedTypes = mutableSetOf<TypeName>()
+        data.forEach { expression ->
+            val name = expression.name
+            val scope = (definedTypes + expression.type.getConstructors())
                     .map { it to VariableTerm(it) }
                     .toMap()
             val (resultType, equations) = expression.type.getEquations(scope)
             val system = equations + listOf(AlgebraicEquation(VariableTerm(name), resultType))
             val solution = system.inferTypes(
-                    result.keys + setOf(name)
+                    definedTypes + setOf(name)
             )
 
             val typeConstructors = expression.type.getConstructors().map {
@@ -38,7 +40,8 @@ class AlgebraicTypeInferenceProcessor(
                 it to type.toType()
             }.toMap(LinkedHashMap())
 
-            result[name] = InferredTypeImpl(expression, typeConstructors)
+            definedTypes.add(name)
+            result.add(InferredTypeImpl(expression, typeConstructors))
         }
         return result
     }

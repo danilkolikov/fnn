@@ -4,13 +4,18 @@ import thesis.preprocess.expressions.TypeName
 import thesis.preprocess.memory.TypeMemoryInformation
 
 sealed class MemoryRepresentation {
+    abstract val typeName: TypeName
+    abstract val info: TypeMemoryInformation.ConstructorInformation
+
     data class Object(
-            val typeName: TypeName,
-            val representation: Array<Boolean>
+            override val typeName: TypeName,
+            override val info: TypeMemoryInformation.ConstructorInformation,
+            val representation: Array<Short>
     ) : MemoryRepresentation()
+
     data class Constructor(
-            val typeName: TypeName,
-            val typeSize: Int,
-            val info: TypeMemoryInformation.ConstructorInformation
+            override val typeName: TypeName,
+            override val info: TypeMemoryInformation.ConstructorInformation,
+            val typeSize: Int
     ) : MemoryRepresentation()
 }

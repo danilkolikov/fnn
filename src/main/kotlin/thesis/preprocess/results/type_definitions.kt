@@ -11,6 +11,7 @@ import thesis.preprocess.expressions.TypeName
 import thesis.preprocess.memory.TypeMemoryInformation
 
 interface SimpleType {
+    val name: TypeName
     val type: AlgebraicType
 }
 
@@ -29,6 +30,7 @@ interface InMemoryType : InferredType {
 // Implementations
 
 data class SimpleTypeImpl(
+        override val name: TypeName,
         override val type: AlgebraicType
 ) : SimpleType
 

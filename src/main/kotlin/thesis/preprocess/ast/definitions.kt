@@ -9,20 +9,16 @@ data class LambdaProgram(val expressions: List<LambdaProgramExpression>)
 
 sealed class LambdaProgramExpression
 
-sealed class Definition<out E : Expression> : LambdaProgramExpression() {
-    abstract val name: String
-    abstract val expression: E
-}
-
 data class LambdaDefinition(
-        override val name: LambdaName,
-        override val expression: Lambda
-) : Definition<Lambda>()
+        val name: LambdaName,
+        val patterns: List<Pattern>,
+        val expression: Lambda
+) : LambdaProgramExpression()
 
 data class TypeDefinition(
-        override val name: TypeName,
-        override val expression: AlgebraicType
-) : Definition<AlgebraicType>()
+        val name: TypeName,
+        val expression: AlgebraicType
+) : LambdaProgramExpression()
 
 data class LambdaTypeDeclaration(
         val name: LambdaName,

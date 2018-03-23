@@ -5,15 +5,16 @@
  */
 package thesis.preprocess.results
 
-import thesis.preprocess.expressions.Lambda
-import thesis.preprocess.expressions.Type
+import thesis.preprocess.expressions.*
 
 interface SimpleLambda {
-    val expressions: List<Lambda>
+    val name: LambdaName
+    val expressions: List<LambdaWithPatterns>
 }
 
 interface RenamedLambda : SimpleLambda {
     val nameMap: Map<String, Lambda>
+    val patternsNameMap: Map<String, Pattern>
 }
 
 interface InferredLambda : RenamedLambda {
@@ -24,12 +25,14 @@ interface InferredLambda : RenamedLambda {
 // Implementations
 
 data class SimpleLambdaImpl(
-        override val expressions: List<Lambda>
+        override val name: LambdaName,
+        override val expressions: List<LambdaWithPatterns>
 ) : SimpleLambda
 
 data class RenamedLambdaImpl(
         private val _lambda: SimpleLambda,
-        override val nameMap: Map<String, Lambda>
+        override val nameMap: Map<String, Lambda>,
+        override val patternsNameMap: Map<String, Pattern>
 ) : RenamedLambda, SimpleLambda by _lambda
 
 data class InferredLambdaImpl(

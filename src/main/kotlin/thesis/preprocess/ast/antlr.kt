@@ -8,6 +8,7 @@ package thesis.preprocess.ast
 import thesis.LambdaProgramParser
 import thesis.preprocess.expressions.AlgebraicType
 import thesis.preprocess.expressions.Lambda
+import thesis.preprocess.expressions.Pattern
 import thesis.preprocess.expressions.Type
 
 fun LambdaProgramParser.ProgramContext.toAst() = LambdaProgram(
@@ -54,8 +55,10 @@ fun LambdaProgramParser.TypeSumOperandContext.toAst(): AlgebraicType {
 
 fun LambdaProgramParser.LambdaDefinitionContext.toAst(): LambdaDefinition {
     val expression = lambdaExpression().toAst()
+    val patterns = patternExpression().map { it.toAst() }
     return LambdaDefinition(
             name.text,
+            patterns,
             expression
     )
 }
@@ -120,4 +123,20 @@ fun LambdaProgramParser.LambdaTypeDeclarationContext.toAst(): LambdaTypeDeclarat
             lambdaName().text,
             typeDeclaration().toAst()
     )
+}
+
+fun LambdaProgramParser.PatternExpressionContext.toAst(): Pattern {
+    if (lambdaName() != null) {
+        return Pattern.Variable(lambdaName().text)
+    }
+    if (name != null) {
+        return Pattern.Object(name.text)
+    }
+    if (constructor != null) {
+        return Pattern.Constructor(
+                constructor.text,
+                patternExpression().map { it.toAst() }
+        )
+    }
+    throw IllegalStateException("Unexpected AST node")
 }
