@@ -1,4 +1,4 @@
-package thesis.preprocess.lambda
+package thesis.preprocess.lambda.reducible
 
 import thesis.preprocess.expressions.LambdaName
 import thesis.preprocess.memory.TypeMemoryInformation
@@ -8,21 +8,21 @@ import thesis.preprocess.memory.TypeMemoryInformation
  *
  * @author Danil Kolikov
  */
-sealed class CompiledPattern {
+sealed class ReduciblePattern {
 
-    abstract fun match(compiledLambda: CompiledLambda): Map<LambdaName, CompiledLambda>?
+    abstract fun match(compiledLambda: ReducibleLambda): Map<LambdaName, ReducibleLambda>?
 
     data class Variable(
             val name: LambdaName
-    ) : CompiledPattern() {
-        override fun match(compiledLambda: CompiledLambda) = mapOf(name to compiledLambda)
+    ) : ReduciblePattern() {
+        override fun match(compiledLambda: ReducibleLambda) = mapOf(name to compiledLambda)
     }
 
     data class Object(
             val information: TypeMemoryInformation.ConstructorInformation
-    ) : CompiledPattern() {
-        override fun match(compiledLambda: CompiledLambda): Map<LambdaName, CompiledLambda>? {
-            if (compiledLambda !is CompiledLambda.Object) {
+    ) : ReduciblePattern() {
+        override fun match(compiledLambda: ReducibleLambda): Map<LambdaName, ReducibleLambda>? {
+            if (compiledLambda !is ReducibleLambda.Object) {
                 // Can't match
                 return null
             }
@@ -36,18 +36,18 @@ sealed class CompiledPattern {
     }
 
     data class Constructor(
-            val arguments: List<CompiledPattern>,
+            val arguments: List<ReduciblePattern>,
             val information: TypeMemoryInformation.ConstructorInformation
-    ) : CompiledPattern() {
-        override fun match(compiledLambda: CompiledLambda): Map<LambdaName, CompiledLambda>? {
-            if (compiledLambda !is CompiledLambda.Object) {
+    ) : ReduciblePattern() {
+        override fun match(compiledLambda: ReducibleLambda): Map<LambdaName, ReducibleLambda>? {
+            if (compiledLambda !is ReducibleLambda.Object) {
                 // Can't match
                 return null
             }
             val objects = information.argumentOffsets.map { (type, size, offset) ->
                 val data = Array(size, { 0.toShort() })
                 System.arraycopy(compiledLambda.data, information.offset + offset, data, 0, size)
-                CompiledLambda.Object(type, data)
+                ReducibleLambda.Object(type, data)
             }
             val matchedArguments = arguments.zip(objects) { pattern, obj -> pattern.match(obj) }
             return if (matchedArguments.any { it == null }) null else

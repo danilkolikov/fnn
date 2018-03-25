@@ -7,9 +7,39 @@ fst Q y z = Z;
 fst Z y z = T;
 fst T y z = Q;
 
-@type Bool = True | False;
+@type Bool = False | True;
 
+@type if = Bool -> Bar -> Bar -> Bar;
 if True x y = x;
 if False x y = y;
 
-main = if False T (if True Q Z);
+@type id = Bar -> Bar;
+id x = x;
+
+not True = False;
+not False = True;
+
+@type eq = Bar -> Bar -> Bool;
+eq Z Z = True;
+eq T T = True;
+eq Q Q = True;
+eq x z = False;
+
+@type foo = (Bool -> Bool) -> Bool -> Bool;
+foo x t = x t;
+
+@type idf = Bool -> Bool;
+idf x = x;
+
+@type ift = Bool -> (Bool -> Bool) -> (Bool -> Bool) -> (Bool -> Bool);
+ift True a b = a;
+ift False a b = b;
+
+@type N = One | Two | Three | Four;
+
+test False False = One;
+test False True = Two;
+test True False = Three;
+test True True = Four;
+
+main = test (not True) ((ift (eq (if True Z T) (if False T Z)) idf not) (not True))

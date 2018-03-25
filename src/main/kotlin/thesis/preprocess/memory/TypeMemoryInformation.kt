@@ -35,12 +35,9 @@ class TypeMemoryInformation(
         val constructorsList = mutableListOf<ConstructorInformation>()
         var currentOffset = 0
         for ((constructorName, type) in constructors) {
-            val arguments = mutableListOf<TypeName>()
-            var curType = type
-            while (curType is Type.Function) {
-                arguments.add((curType.from as Type.Literal).name)
-                curType = curType.to
-            }
+            val operands = type.getOperands()
+            val arguments = operands.dropLast(1)    // Drop resulting type
+
             val constructorInformation = if (arguments.isEmpty()) {
                 // Type literal
                 ConstructorInformation(
@@ -51,7 +48,9 @@ class TypeMemoryInformation(
             } else {
                 val argumentOffsets = mutableListOf<ArgumentInformation>()
                 val startOffset = currentOffset
-                for (argument in arguments) {
+                for (anArgument in arguments) {
+                    // Types of constructor arguments are objects
+                    val argument = (anArgument as Type.Literal).name
                     val size = informationScope[argument]!!.typeSize
                     argumentOffsets.add(ArgumentInformation(
                             argument,

@@ -1,24 +1,25 @@
-package thesis.preprocess.lambda
+package thesis.preprocess.lambda.reducible
 
 import thesis.preprocess.expressions.Replaceable
 import thesis.preprocess.expressions.TypeName
+import thesis.preprocess.lambda.MemoryRepresentation
 import java.util.*
 
 /**
  * Executable representation of lambda-expression.
  * During execution expression is eagerly evaluated
  */
-sealed class CompiledLambda : Replaceable<CompiledLambda> {
+sealed class ReducibleLambda : Replaceable<ReducibleLambda> {
 
-    abstract fun reduce(): CompiledLambda
+    abstract fun reduce(): ReducibleLambda
 
     interface Callable {
-        fun call(arguments: List<CompiledLambda>): CompiledLambda
+        fun call(arguments: List<ReducibleLambda>): ReducibleLambda
     }
 
-    class Object(val type: TypeName, val data: Array<Short>) : CompiledLambda() {
+    class Object(val type: TypeName, val data: Array<Short>) : ReducibleLambda() {
         override fun reduce() = this
-        override fun replace(map: Map<String, CompiledLambda>) = this
+        override fun replace(map: Map<String, ReducibleLambda>) = this
 
         override fun toString() = "[$type: ${Arrays.toString(data)}]"
     }
@@ -26,10 +27,10 @@ sealed class CompiledLambda : Replaceable<CompiledLambda> {
     class ObjectFunction(
             val name: TypeName,
             val memoryRepresentation: MemoryRepresentation.Constructor
-    ) : CompiledLambda(), Callable {
+    ) : ReducibleLambda(), Callable {
         override fun reduce() = this
-        override fun replace(map: Map<String, CompiledLambda>) = this
-        override fun call(arguments: List<CompiledLambda>): CompiledLambda {
+        override fun replace(map: Map<String, ReducibleLambda>) = this
+        override fun call(arguments: List<ReducibleLambda>): ReducibleLambda {
             return if (arguments.all { it is Object }) {
                 val data = Array(memoryRepresentation.typeSize, { 0.toShort() })
                 arguments
@@ -46,16 +47,16 @@ sealed class CompiledLambda : Replaceable<CompiledLambda> {
     }
 
     class GuardedFunction(
-            val lambdas: List<CompiledLambdaWithPatterns>
-    ) : CompiledLambda(), Callable {
+            val lambdas: List<ReducibleLambdaWithPatterns>
+    ) : ReducibleLambda(), Callable {
         // Every variable here is assumed to be bound
-        override fun replace(map: Map<String, CompiledLambda>) = this
+        override fun replace(map: Map<String, ReducibleLambda>) = this
 
         override fun reduce() = GuardedFunction(
-                lambdas.map { CompiledLambdaWithPatterns(it.patterns, it.lambda.reduce()) }
+                lambdas.map { ReducibleLambdaWithPatterns(it.patterns, it.lambda.reduce()) }
         )
 
-        override fun call(arguments: List<CompiledLambda>): CompiledLambda {
+        override fun call(arguments: List<ReducibleLambda>): ReducibleLambda {
             for ((patterns, lambda) in lambdas) {
                 if (arguments.size < patterns.size) {
                     continue
@@ -77,15 +78,15 @@ sealed class CompiledLambda : Replaceable<CompiledLambda> {
                 .joinToString("; ")
     }
 
-    class Variable(val name: String) : CompiledLambda() {
+    class Variable(val name: String) : ReducibleLambda() {
         override fun reduce() = this
-        override fun replace(map: Map<String, CompiledLambda>) = map[name] ?: this
+        override fun replace(map: Map<String, ReducibleLambda>) = map[name] ?: this
 
         override fun toString() = name
     }
 
-    class FunctionCall(val function: CompiledLambda, val arguments: List<CompiledLambda>) : CompiledLambda() {
-        override fun reduce(): CompiledLambda {
+    class FunctionCall(val function: ReducibleLambda, val arguments: List<ReducibleLambda>) : ReducibleLambda() {
+        override fun reduce(): ReducibleLambda {
             val function = function.reduce()
             val arguments = arguments.map { it.reduce() }
             return if (function is Callable)
@@ -94,7 +95,7 @@ sealed class CompiledLambda : Replaceable<CompiledLambda> {
                 FunctionCall(function, arguments)
         }
 
-        override fun replace(map: Map<String, CompiledLambda>) = FunctionCall(
+        override fun replace(map: Map<String, ReducibleLambda>) = FunctionCall(
                 function.replace(map),
                 arguments.map { it.replace(map) }
         )
@@ -104,13 +105,13 @@ sealed class CompiledLambda : Replaceable<CompiledLambda> {
 
     class AnonymousFunction(
             val arguments: List<String>,
-            val body: CompiledLambda
-    ) : CompiledLambda(), Callable {
+            val body: ReducibleLambda
+    ) : ReducibleLambda(), Callable {
         override fun reduce() = AnonymousFunction(arguments, body.reduce())
 
-        override fun replace(map: Map<String, CompiledLambda>) = AnonymousFunction(arguments, body.replace(map))
+        override fun replace(map: Map<String, ReducibleLambda>) = AnonymousFunction(arguments, body.replace(map))
 
-        override fun call(arguments: List<CompiledLambda>): CompiledLambda {
+        override fun call(arguments: List<ReducibleLambda>): ReducibleLambda {
             val replaceMap = this.arguments.zip(arguments).toMap()
             return body.replace(replaceMap).reduce()
         }

@@ -2,7 +2,8 @@ package thesis
 
 import thesis.preprocess.ast.ExpressionSorter
 import thesis.preprocess.ast.ReaderParser
-import thesis.preprocess.lambda.LambdaCompiler
+import thesis.preprocess.lambda.raw.RawArguments
+import thesis.preprocess.lambda.raw.RawLambdaCompiler
 import thesis.preprocess.memory.TypeMemoryProcessor
 import thesis.preprocess.renaming.ExpressionRenamingProcessor
 import thesis.preprocess.renaming.NameGenerator
@@ -28,7 +29,7 @@ fun main(args: Array<String>) {
         val memory = TypeMemoryProcessor().process(inferred)
         println(memory)
 
-        val compiled = LambdaCompiler().process(memory)
-        println(compiled["main"]?.reduce())
+        val compiled = RawLambdaCompiler(nameGenerator).process(memory)
+        println(compiled["main"]?.call(RawArguments.EMPTY))
     }
 }
