@@ -4,7 +4,6 @@ import thesis.preprocess.Processor
 import thesis.preprocess.expressions.*
 import thesis.preprocess.lambda.MemoryRepresentation
 import thesis.preprocess.lambda.MemoryRepresentationCompiler
-import thesis.preprocess.renaming.NameGenerator
 import thesis.preprocess.results.InMemoryExpressions
 import thesis.preprocess.results.InMemoryType
 import thesis.preprocess.results.InferredLambda
@@ -17,29 +16,25 @@ import thesis.preprocess.types.UnknownTypeError
  *
  * @author Danil Kolikov
  */
-class RawLambdaCompiler(
-        val nameGenerator: NameGenerator
-) : Processor<InMemoryExpressions, Map<LambdaName, RawLambda.Function.Guarded>> {
+class RawLambdaCompiler : Processor<InMemoryExpressions, Map<LambdaName, RawLambda.Function.Guarded>> {
 
     override fun process(data: InMemoryExpressions): Map<LambdaName, RawLambda.Function.Guarded> {
         val memoryRepresentations = MemoryRepresentationCompiler().process(data.typeDefinitions)
         return LambdaDefinitionCompiler(
                 data.typeDefinitions.map { it.name to it }.toMap(),
-                memoryRepresentations,
-                nameGenerator
+                memoryRepresentations
         ).process(data.lambdaDefinitions)
     }
 
     private class LambdaDefinitionCompiler(
             private val typeMap: Map<TypeName, InMemoryType>,
-            private val memoryRepresentations: Map<TypeName, MemoryRepresentation>,
-            private val nameGenerator: NameGenerator
+            private val memoryRepresentations: Map<TypeName, MemoryRepresentation>
     ) : Processor<List<InferredLambda>, Map<LambdaName, RawLambda.Function.Guarded>> {
         override fun process(data: List<InferredLambda>): Map<LambdaName, RawLambda.Function.Guarded> {
             val result = mutableMapOf<LambdaName, RawLambda.Function.Guarded>()
             data.forEach { expression ->
                 val name = expression.name
-                val lambdas = mutableListOf<RawLambda.Function.Anonymous>()
+                val cases = mutableListOf<RawLambda.Function.Guarded.Case>()
                 val arguments = expression.type.getArguments()
                 expression.expressions.forEach { (patterns, lambda) ->
                     var offset = 0
@@ -53,7 +48,12 @@ class RawLambdaCompiler(
                                 val inMemoryType = typeMap[type.name] ?: throw UnknownTypeError(type.name)
                                 val start = offset
                                 offset += inMemoryType.memoryInfo.typeSize
-                                pattern.addVariables(variablesMap, guards, start to offset)
+                                pattern.addVariables(
+                                        variablesMap,
+                                        guards,
+                                        start to offset,
+                                        inMemoryType.name
+                                )
                             }
                             is Type.Function -> {
                                 // When argument is function, pattern is variable
@@ -61,21 +61,27 @@ class RawLambdaCompiler(
                                 val functionName = (pattern as Pattern.Variable).name
 
                                 val position = functionsCount++
-                                guards.add(Guard.Function(position))
                                 variablesMap[functionName] = RawLambda.Variable.Function(
                                         functionName,
-                                        position
+                                        type,
+                                        position,
+                                        DataPointer.START
                                 )
                             }
                         }
                     }
-                    val compiled = lambda.compile(variablesMap, result, expression.expressionTypes)
-                    lambdas.add(RawLambda.Function.Anonymous(
+                    val compiled = lambda.compile(
+                            variablesMap,
+                            result,
+                            expression.expressionTypes,
+                            DataPointer(offset, functionsCount)
+                    )
+                    cases.add(RawLambda.Function.Guarded.Case(
                             guards,
                             compiled
                     ))
                 }
-                result[name] = RawLambda.Function.Guarded(name, lambdas)
+                result[name] = RawLambda.Function.Guarded(name, expression.type, cases)
             }
             return result
         }
@@ -83,18 +89,19 @@ class RawLambdaCompiler(
         private fun Pattern.addVariables(
                 variables: MutableMap<LambdaName, RawLambda.Variable>,
                 guards: MutableList<Guard>,
-                positions: Pair<Int, Int>
+                positions: Pair<Int, Int>,
+                typeName: TypeName
         ) {
             when (this) {
                 is Pattern.Object -> {
                     val memory = memoryRepresentations[name] ?: throw UnknownExpressionError(name)
-                    val guard = Guard.Data.Object(positions, memory as MemoryRepresentation.Object)
+                    val guard = Guard.Object(positions, memory as MemoryRepresentation.Object)
                     guards.add(guard)
                 }
                 is Pattern.Variable -> {
-                    val variable = RawLambda.Variable.Object(name, positions)
+                    val variable = RawLambda.Variable.Object(Type.Literal(typeName), positions, DataPointer.START)
                     variables[name] = variable
-                    val guard = Guard.Data.Variable(positions)
+                    val guard = Guard.Variable(positions)
                     guards.add(guard)
                 }
                 is Pattern.Constructor -> {
@@ -106,7 +113,8 @@ class RawLambdaCompiler(
                         argument.addVariables(
                                 variables,
                                 guards,
-                                start to offset
+                                start to offset,
+                                info.type
                         )
                     }
                 }
@@ -116,82 +124,71 @@ class RawLambdaCompiler(
         private fun Lambda.compile(
                 variables: Map<LambdaName, RawLambda.Variable>,
                 compiled: Map<LambdaName, RawLambda.Function.Guarded>,
-                expressionsTypes: Map<Lambda, Type>
+                expressionsTypes: Map<Lambda, Type>,
+                dataPointer: DataPointer
         ): RawLambda = when (this) {
             is Lambda.Trainable -> throw IllegalStateException("Trainable should be converted to Literals")
-            is Lambda.TypedExpression -> expression.compile(variables, compiled, expressionsTypes)
+            is Lambda.TypedExpression -> expression.compile(variables, compiled, expressionsTypes, dataPointer)
             is Lambda.Literal -> {
                 val memory = memoryRepresentations[name]
                 val defined = compiled[name]
                 val variable = variables[name]
                 if (memory != null) {
                     // Some representation of object
+                    val type = expressionsTypes[this] ?: throw UnknownExpressionError(name)
                     when (memory) {
-                        is MemoryRepresentation.Object -> RawLambda.Object(memory.typeName, memory.representation)
-                        is MemoryRepresentation.Constructor -> RawLambda.Function.Constructor(memory.typeName, memory)
+                        is MemoryRepresentation.Object -> RawLambda.Object(type, memory.representation)
+                        is MemoryRepresentation.Constructor -> RawLambda.Function.Constructor(name, type, memory)
                     }
                 } else defined ?: variable ?: throw UnknownExpressionError(name)
             }
             is Lambda.Abstraction -> {
                 val type = expressionsTypes[this] ?: throw TypeInferenceErrorWithoutContext()
                 val arguments = type.getArguments()
-                var offset = 0
-                var functionsCounter = 0
-                val guards = mutableListOf<Guard>()
+                var thisOffset = dataPointer.dataOffset
+                var functionsCounter = dataPointer.functionsCount
                 val newVariables = this.arguments.zip(arguments) { name, argType ->
                     when (argType) {
                         is Type.Literal -> {
                             // Object - save positions of representation in array
                             val memory = typeMap[argType.name] ?: throw UnknownExpressionError(name)
-                            val start = offset
-                            offset += memory.memoryInfo.typeSize
-                            val positions = start to offset
-                            guards.add(Guard.Data.Variable(positions))
+                            val start = thisOffset
+                            thisOffset += memory.memoryInfo.typeSize
+                            val positions = start to thisOffset
                             name to RawLambda.Variable.Object(
-                                    argType.name,
-                                    positions
+                                    argType,
+                                    positions,
+                                    dataPointer
                             )
                         }
                         is Type.Function -> {
                             // Some function - save position in input
-                            val position = functionsCounter++
-                            guards.add(Guard.Function(position))
-                            name to RawLambda.Variable.Function(name, position)
+                            name to RawLambda.Variable.Function(name, argType, functionsCounter++, dataPointer)
                         }
                     }
                 }.toMap()
+
                 RawLambda.Function.Anonymous(
-                        guards,
+                        type,
                         expression.compile(
                                 variables + newVariables,
                                 compiled,
-                                expressionsTypes
-                        )
+                                expressionsTypes,
+                                DataPointer(thisOffset, functionsCounter)
+                        ),
+                        dataPointer
                 )
             }
             is Lambda.Application -> {
-                val type = expressionsTypes[function] ?: throw TypeInferenceErrorWithoutContext()
-                val arguments = type.getArguments()
-                if (arguments.size == this.arguments.size) {
-                    // Full application
-                    RawLambda.Application(
-                            function.compile(variables, compiled, expressionsTypes),
-                            this.arguments.map { it.compile(variables, compiled, expressionsTypes) }
-                    )
-                } else {
-                    // Partial application
-                    // Use eta-reduction to transform it to a usual function application
-                    val rest = List(arguments.size - this.arguments.size, { nameGenerator.next("x") })
-                    val eta = Lambda.Abstraction(
-                            rest,
-                            Lambda.Application(
-                                    function,
-                                    this.arguments + rest.map { Lambda.Literal(it) }
-                            )
-                    )
-                    val newTypes = expressionsTypes + mapOf(eta to type)
-                    eta.compile(variables, compiled, newTypes)
-                }
+                val type = expressionsTypes[this] ?: throw TypeInferenceErrorWithoutContext()
+                RawLambda.Application(
+                        type,
+                        function.compile(variables, compiled, expressionsTypes, dataPointer),
+                        this.arguments.map {
+                            it.compile(variables, compiled, expressionsTypes, dataPointer)
+                        },
+                        dataPointer
+                )
             }
         }
     }

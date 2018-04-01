@@ -29,7 +29,7 @@ fun main(args: Array<String>) {
         val memory = TypeMemoryProcessor().process(inferred)
         println(memory)
 
-        val compiled = RawLambdaCompiler(nameGenerator).process(memory)
+        val compiled = RawLambdaCompiler().process(memory)
         println(compiled["main"]?.call(RawArguments.EMPTY))
     }
 }

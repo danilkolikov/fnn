@@ -42,4 +42,6 @@ test False True = Two;
 test True False = Three;
 test True True = Four;
 
-main = test (not True) ((ift (eq (if True Z T) (if False T Z)) idf not) (not True))
+@type BoolBar = BB Bool Bar;
+
+main = (\x.\y.\f. ((\t z. f (BB y Z) (BB x T)) ((\x.x) x) y)) True False (\x y. x)

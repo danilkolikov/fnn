@@ -9,6 +9,8 @@ sealed class Type : Expression {
 
     fun getArguments() = getOperands().dropLast(1)
 
+    fun getResultType() = getOperands().last()
+
     data class Literal(val name: String) : Type() {
         override fun toString() = name
 

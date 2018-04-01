@@ -72,6 +72,12 @@ class LambdaInferenceProcessor(
                         function,
                         functionType
                 ))
+                scope[name] ?.let {
+                    system.add(AlgebraicEquation(
+                            function,
+                            it
+                    ))
+                }
 
                 val solution = system.inferTypes(definedTypes)
                 val type = solution[name] ?: throw TypeInferenceError(lambda)

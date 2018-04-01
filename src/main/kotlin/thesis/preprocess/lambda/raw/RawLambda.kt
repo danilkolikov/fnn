@@ -1,6 +1,7 @@
 package thesis.preprocess.lambda.raw
 
 import thesis.preprocess.expressions.LambdaName
+import thesis.preprocess.expressions.Type
 import thesis.preprocess.expressions.TypeName
 import thesis.preprocess.lambda.MemoryRepresentation
 import thesis.preprocess.lambda.raw.RawLambda.Object
@@ -12,12 +13,25 @@ import thesis.preprocess.lambda.raw.RawLambda.Object
  */
 sealed class RawLambda {
 
+    abstract val type: Type
+
+    abstract val closurePointer: DataPointer
+
     abstract fun call(arguments: RawArguments): RawLambda
 
     sealed class Variable : RawLambda() {
 
-        class Object(val type: TypeName, val positions: Pair<Int, Int>) : Variable() {
-            override fun call(arguments: RawArguments) = Object(
+        abstract fun resolve(arguments: RawArguments): RawLambda
+
+        override fun call(arguments: RawArguments) = resolve(arguments)
+
+        class Object(
+                override val type: Type,
+                val positions: Pair<Int, Int>,
+                override val closurePointer: DataPointer
+        ) : Variable() {
+
+            override fun resolve(arguments: RawArguments) = Object(
                     type,
                     arguments.data.subList(positions.first, positions.second)
             )
@@ -25,14 +39,23 @@ sealed class RawLambda {
             override fun toString() = "[$type: $positions]"
         }
 
-        class Function(val name: LambdaName, val position: Int) : Variable() {
-            override fun call(arguments: RawArguments) = arguments.functions[position]
+        class Function(
+                val name: LambdaName,
+                override val type: Type,
+                val position: Int,
+                override val closurePointer: DataPointer
+        ) : Variable() {
+
+            override fun resolve(arguments: RawArguments) = arguments.functions[position]
 
             override fun toString() = "[$name: $position]"
         }
     }
 
-    class Object(val type: TypeName, val data: List<Short>) : RawLambda() {
+    class Object(override val type: Type, val data: List<Short>) : RawLambda() {
+
+        override val closurePointer = DataPointer.START // Doesn't have any closure
+
         override fun call(arguments: RawArguments) = this // Doesn't change after call
 
         override fun toString() = "[$type: $data]"
@@ -40,20 +63,15 @@ sealed class RawLambda {
 
     sealed class Function : RawLambda() {
 
-        abstract fun test(arguments: RawArguments): Boolean
-
-        protected abstract fun doCall(arguments: RawArguments): RawLambda
-
-        override fun call(arguments: RawArguments) = if (test(arguments)) doCall(arguments) else this
-
         class Constructor(
                 val name: TypeName,
+                override val type: Type,
                 val memoryRepresentation: MemoryRepresentation.Constructor
         ) : Function() {
 
-            override fun test(arguments: RawArguments) = arguments.data.size == memoryRepresentation.typeSize
+            override val closurePointer = DataPointer.START // Defined in global scope
 
-            override fun doCall(arguments: RawArguments): RawLambda {
+            override fun call(arguments: RawArguments): RawLambda {
                 val offset = memoryRepresentation.info.offset
                 val data = List(memoryRepresentation.typeSize, {
                     if (it < offset) {
@@ -66,7 +84,7 @@ sealed class RawLambda {
                 })
 
                 return Object(
-                        memoryRepresentation.typeName,
+                        type.getResultType(),
                         data
                 )
             }
@@ -74,65 +92,68 @@ sealed class RawLambda {
             override fun toString() = name
         }
 
-        class Guarded(val name: LambdaName, val lambdas: List<Anonymous>) : Function() {
-            override fun test(arguments: RawArguments) = lambdas.any { it.test(arguments) }
+        class Guarded(
+                val name: LambdaName,
+                override val type: Type,
+                val lambdas: List<Case>
+        ) : Function() {
 
-            override fun doCall(arguments: RawArguments): RawLambda {
+            override val closurePointer = DataPointer.START // Defined in global scope
+
+            override fun call(arguments: RawArguments): RawLambda {
                 for (lambda in lambdas) {
                     if (lambda.test(arguments)) {
-                        return lambda.call(arguments)
+                        return lambda.body.call(arguments)
                     }
                 }
                 return this
             }
 
             override fun toString() = "($name = ${lambdas.joinToString(", ")})"
+
+            class Case(
+                    val guards: List<Guard>,
+                    val body: RawLambda
+            ) {
+                fun test(arguments: RawArguments) = guards.all { it.match(arguments) }
+
+                override fun toString() = body.toString()
+            }
         }
 
-        class Anonymous(val guards: List<Guard>, val body: RawLambda) : Function() {
-
-            override fun test(arguments: RawArguments) = guards.all { it.match(arguments) }
-
-            override fun doCall(arguments: RawArguments) = body.call(arguments)
-
-            override fun toString() = body.toString()
+        class Anonymous(
+                override val type: Type,
+                val body: RawLambda,
+                override val closurePointer: DataPointer
+        ) : Function() {
+            override fun call (arguments: RawArguments) = body.call(arguments)
         }
     }
 
-    class Application(val function: RawLambda, val arguments: List<RawLambda>) : RawLambda() {
+    class Application(
+            override val type: Type,
+            val function: RawLambda,
+            val arguments: List<RawLambda>,
+            override val closurePointer: DataPointer
+    ) : RawLambda() {
         override fun call(arguments: RawArguments): RawLambda {
-            val operands = listOf(function) + this.arguments
-
-            // Eagerly call operands, if they allow to be called
-            val calledOperands = operands.map {
+            // Resolve variables and call applications
+            val resolved = (listOf(function) + this.arguments).map {
                 when (it) {
-                    is Object -> it                             // Don't call objects
-                    is Variable -> it.call(arguments)           // Replace variables with actual values
-                    is Application -> it.call(arguments)        // Call nested applications
-                    is Function -> it.call(RawArguments.EMPTY)  // Call functions with empty arguments (to check if they are constants)
+                    is Variable -> it.resolve(arguments)
+                    is Application -> it.call(arguments)
+                    else -> it
                 }
             }
 
-            var calledFunction = calledOperands.first()
+            val func = resolved.first()
 
-            val called = calledOperands.drop(1)
-            val args = mutableListOf<RawLambda>()
-
-            // Apply function with arguments, adding them one-by-one
-            // If function is applied, continue with rest of variables. Otherwise, add more arguments
-            for (arg in called) {
-                args.add(arg)
-                val data = args.filterIsInstance(Object::class.java).flatMap { it.data }
-                val functions = args.filterIsInstance(Function::class.java)
-                val raw = RawArguments(data, functions)
-                val result = calledFunction.call(raw)
-                if (calledFunction != result) {
-                    // Function applied
-                    calledFunction = result
-                    args.clear()
-                }
-            }
-            return calledFunction
+            val args = resolved.drop(1)
+            val data = args.filterIsInstance(Object::class.java).flatMap { it.data }
+            val functions = args.filterIsInstance(Function::class.java)
+            val newArgs = RawArguments(data, functions)
+            val raw = arguments.getArgumentsBefore(func.closurePointer).append(newArgs)
+            return func.call(raw)
         }
 
         override fun toString() = "($function ${arguments.joinToString(" ")})"

@@ -9,36 +9,26 @@ import thesis.preprocess.lambda.MemoryRepresentation
  */
 sealed class Guard {
 
-    abstract fun match(arguments: RawArguments): Boolean
+    abstract val positions: Pair<Int, Int>
 
-    sealed class Data : Guard() {
+    abstract fun match(data: List<Short>): Boolean
 
-        abstract val positions: Pair<Int, Int>
+    fun match(arguments: RawArguments) = positions.second <= arguments.data.size && match(
+            arguments.data.subList(positions.first, positions.second)
+    )
 
-        abstract fun match(data: List<Short>): Boolean
+    data class Variable(
+            override val positions: Pair<Int, Int>
+    ) : Guard() {
 
-        override fun match(arguments: RawArguments) = positions.second <= arguments.data.size && match(
-                arguments.data.subList(positions.first, positions.second)
-        )
-
-        data class Variable(
-                override val positions: Pair<Int, Int>
-        ) : Data() {
-
-            override fun match(data: List<Short>) = data.any { it == 1.toShort() }
-        }
-
-        data class Object(
-                override val positions: Pair<Int, Int>,
-                val memory: MemoryRepresentation.Object
-        ) : Data() {
-
-            override fun match(data: List<Short>) = data == memory.representation
-        }
+        override fun match(data: List<Short>) = data.any { it == 1.toShort() }
     }
 
-    data class Function(val position: Int) : Guard() {
+    data class Object(
+            override val positions: Pair<Int, Int>,
+            val memory: MemoryRepresentation.Object
+    ) : Guard() {
 
-        override fun match(arguments: RawArguments) = position < arguments.functions.size
+        override fun match(data: List<Short>) = data == memory.representation
     }
 }
