@@ -1,7 +1,7 @@
-package thesis.preprocess.lambda.raw
+package thesis.preprocess.spec
 
 /**
- * Points on some position in RawArguments arrays
+ * Points on some position in DataBag arrays
  *
  * @author Danil Kolikov
  */

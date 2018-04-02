@@ -44,4 +44,4 @@ test True True = Four;
 
 @type BoolBar = BB Bool Bar;
 
-main = (\x.\y.\f. ((\t z. f (BB y Z) (BB x T)) ((\x.x) x) y)) True False (\x y. x)
+main = (\x.\y.\f. ((\t z. f (BB y Q) (BB x Z)) ((\x.x) x) y)) True False (\x y. x)

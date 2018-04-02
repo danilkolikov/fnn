@@ -1,27 +1,29 @@
-package thesis.preprocess.lambda.raw
+package thesis.eval
+
+import thesis.preprocess.spec.DataPointer
 
 /**
- * Arguments for raw lambda call
+ * Arguments for raw lambda eval
  *
  * @author Danil Kolikov
  */
-data class RawArguments(
+data class DataBag(
         val data: List<Short>,
-        val functions: List<RawLambda.Function>
+        val functions: List<EvalSpec.Function>
 ) {
 
-    fun append(arguments: RawArguments) = RawArguments(
+    fun append(arguments: DataBag) = DataBag(
             data + arguments.data,
             functions + arguments.functions
     )
 
-    fun getArgumentsBefore(dataPointer: DataPointer) = RawArguments(
+    fun getArgumentsBefore(dataPointer: DataPointer) = DataBag(
             data.subList(0, dataPointer.dataOffset),
             functions.subList(0, dataPointer.functionsCount)
     )
 
     companion object {
-        val EMPTY = RawArguments(
+        val EMPTY = DataBag(
                 emptyList(),
                 emptyList()
         )

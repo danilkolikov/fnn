@@ -17,6 +17,7 @@ class TypeMemoryInformation(
 
     data class ConstructorInformation(
             val name: TypeName,
+            val position: Int,
             val offset: Int,
             val argumentOffsets: List<ArgumentInformation>
     )
@@ -34,6 +35,7 @@ class TypeMemoryInformation(
     init {
         val constructorsList = mutableListOf<ConstructorInformation>()
         var currentOffset = 0
+        var position = 0
         for ((constructorName, type) in constructors) {
             val operands = type.getOperands()
             val arguments = operands.dropLast(1)    // Drop resulting type
@@ -42,6 +44,7 @@ class TypeMemoryInformation(
                 // Type literal
                 ConstructorInformation(
                         constructorName,
+                        position++,
                         currentOffset++,
                         emptyList()
                 )
@@ -61,6 +64,7 @@ class TypeMemoryInformation(
                 }
                 ConstructorInformation(
                         constructorName,
+                        position++,
                         startOffset,
                         argumentOffsets
                 )

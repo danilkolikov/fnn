@@ -1,12 +1,13 @@
 package thesis
 
+import thesis.eval.DataBag
+import thesis.eval.EvalSpecCompiler
 import thesis.preprocess.ast.ExpressionSorter
 import thesis.preprocess.ast.ReaderParser
-import thesis.preprocess.lambda.raw.RawArguments
-import thesis.preprocess.lambda.raw.RawLambdaCompiler
 import thesis.preprocess.memory.TypeMemoryProcessor
 import thesis.preprocess.renaming.ExpressionRenamingProcessor
 import thesis.preprocess.renaming.NameGenerator
+import thesis.preprocess.spec.SpecCompiler
 import thesis.preprocess.types.TypeInferenceProcessor
 import java.io.FileReader
 
@@ -29,7 +30,10 @@ fun main(args: Array<String>) {
         val memory = TypeMemoryProcessor().process(inferred)
         println(memory)
 
-        val compiled = RawLambdaCompiler().process(memory)
-        println(compiled["main"]?.call(RawArguments.EMPTY))
+        val specs = SpecCompiler().process(memory)
+        println(specs)
+
+        val compiled = EvalSpecCompiler().process(specs)
+        println(compiled["main"]?.eval(DataBag.EMPTY))
     }
 }
