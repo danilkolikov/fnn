@@ -3,6 +3,7 @@ package thesis.eval
 import thesis.preprocess.spec.DataPattern
 import thesis.preprocess.spec.Spec
 import thesis.preprocess.spec.TypeSpec
+import thesis.utils.mult
 
 /**
  * Callable lambda which arguments are plain array and list of functions
@@ -65,12 +66,12 @@ sealed class EvalSpec {
         ) : Function() {
 
             override fun eval(arguments: DataBag): EvalResult {
-                val offset = spec.memoryRepresentation.info.offset
-                val data = List(spec.memoryRepresentation.typeSize, {
+                val offset = spec.offset
+                val data = List(spec.toTypeSize, {
                     if (it < offset) {
                         return@List 0.toShort()
                     }
-                    if (it > offset + spec.memoryRepresentation.typeSize) {
+                    if (it > offset + spec.fromTypeSize) {
                         return@List 0.toShort()
                     }
                     return@List arguments.data[it - offset]
@@ -106,31 +107,23 @@ sealed class EvalSpec {
             ) {
                 fun getPresence(
                         arguments: DataBag
-                ) = (if (spec.patterns.all {
+                ) = spec.patterns
+                        .map {
                             when (it) {
                                 is DataPattern.Object -> arguments.data[it.position]
                                 is DataPattern.Variable -> {
                                     val data = arguments.data.subList(it.start, it.end)
-                                    val info = it.type.toDataTypeInfo(data)
-                                    info.presence
+                                    it.type.calcPresence(data)
                                 }
-                            } == 1.toShort()
-                        }) 1 else 0).toShort()
+                            }
+                        }.mult().toShort()
 
                 override fun toString() = body.toString()
 
-                private fun TypeSpec.toDataTypeInfo(data: List<Short>): DataTypeInformation = when (this) {
-                    is TypeSpec.Literal -> DataTypeInformation.Literal(this, data[position])
-                    is TypeSpec.Product -> {
-                        val operands = this.operands.map { it.toDataTypeInfo(data) }
-                        val presence = operands.foldRight(1.toShort(), { a, b -> (a.presence * b).toShort() })
-                        DataTypeInformation.Product(this, operands, presence)
-                    }
-                    is TypeSpec.Sum -> {
-                        val operands = this.operands.map { it.toDataTypeInfo(data) }
-                        val presence = operands.map { it.presence }.sum().toShort()
-                        DataTypeInformation.Sum(this, operands, presence)
-                    }
+                private fun TypeSpec.calcPresence(data: List<Short>): Short = when (this) {
+                    is TypeSpec.Literal -> data[start]
+                    is TypeSpec.Product -> this.operands.map { it.calcPresence(data) }.mult().toShort()
+                    is TypeSpec.Sum -> this.operands.map { it.calcPresence(data) }.sum().toShort()
                 }
 
             }

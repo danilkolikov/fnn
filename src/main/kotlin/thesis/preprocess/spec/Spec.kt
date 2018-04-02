@@ -3,7 +3,6 @@ package thesis.preprocess.spec
 import thesis.preprocess.expressions.LambdaName
 import thesis.preprocess.expressions.Type
 import thesis.preprocess.expressions.TypeName
-import thesis.preprocess.lambda.MemoryRepresentation
 
 /**
  * Specification of eagerly evaluated expression
@@ -54,7 +53,9 @@ sealed class Spec {
         data class Constructor(
                 val name: TypeName,
                 override val type: Type,
-                val memoryRepresentation: MemoryRepresentation.Constructor
+                val fromTypeSize: Int,
+                val toTypeSize: Int,
+                val offset: Int
         ) : Function() {
 
             override val closurePointer = DataPointer.START // Defined in global scope

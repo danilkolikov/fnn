@@ -19,7 +19,8 @@ class TypeMemoryInformation(
             val name: TypeName,
             val position: Int,
             val offset: Int,
-            val argumentOffsets: List<ArgumentInformation>
+            val argumentOffsets: List<ArgumentInformation>,
+            val size: Int
     )
 
     data class ArgumentInformation(
@@ -46,7 +47,8 @@ class TypeMemoryInformation(
                         constructorName,
                         position++,
                         currentOffset++,
-                        emptyList()
+                        emptyList(),
+                        1
                 )
             } else {
                 val argumentOffsets = mutableListOf<ArgumentInformation>()
@@ -66,7 +68,8 @@ class TypeMemoryInformation(
                         constructorName,
                         position++,
                         startOffset,
-                        argumentOffsets
+                        argumentOffsets,
+                        currentOffset
                 )
             }
             constructorsList.add(constructorInformation)

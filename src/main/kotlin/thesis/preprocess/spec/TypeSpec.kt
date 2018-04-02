@@ -9,20 +9,22 @@ import thesis.preprocess.expressions.TypeName
  */
 sealed class TypeSpec {
 
+    abstract val start: Int
+
     abstract val end: Int
 
     data class Literal(
             val name: TypeName,
-            val position: Int
+            override val start: Int
     ) : TypeSpec() {
-        override val end = position + 1
+        override val end = start + 1
 
-        override fun toString() = "($name: $position)"
+        override fun toString() = "($name: $start)"
     }
 
     data class Sum(
             val operands: List<TypeSpec>,
-            val start: Int,
+            override val start: Int,
             override val end: Int
     ) : TypeSpec() {
         override fun toString() = "(Sum: ($start, $end), ${operands.joinToString(" ")})"
@@ -31,7 +33,7 @@ sealed class TypeSpec {
     data class Product(
             val name: TypeName,
             val operands: List<TypeSpec>,
-            val start: Int,
+            override val start: Int,
             override val end: Int
     ) : TypeSpec() {
         override fun toString() = "($name: ($start, $end), ${operands.joinToString(" ")})"

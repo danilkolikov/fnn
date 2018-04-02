@@ -113,7 +113,9 @@ class SpecCompiler : Processor<InMemoryExpressions, List<Spec.Function.Guarded>>
             when (this) {
                 is Pattern.Object -> {
                     val memory = memoryRepresentations[name] ?: throw UnknownExpressionError(name)
-                    DataPattern.Object(name, positions.first + memory.info.offset)
+                    patterns.add(
+                            DataPattern.Object(name, positions.first + memory.info.offset)
+                    )
                 }
                 is Pattern.Variable -> {
                     val variable = Spec.Variable.Object(Type.Literal(typeName), positions)
@@ -122,7 +124,7 @@ class SpecCompiler : Processor<InMemoryExpressions, List<Spec.Function.Guarded>>
                     patterns.add(
                             DataPattern.Variable(
                                     name,
-                                    type.toSpec(positions.first),
+                                    type.toSpec(0),
                                     positions.first,
                                     positions.second
                             )
@@ -164,7 +166,13 @@ class SpecCompiler : Processor<InMemoryExpressions, List<Spec.Function.Guarded>>
                     val type = expressionsTypes[this] ?: throw UnknownExpressionError(name)
                     when (memory) {
                         is MemoryRepresentation.Object -> Spec.Object(type, memory.representation)
-                        is MemoryRepresentation.Constructor -> Spec.Function.Constructor(name, type, memory)
+                        is MemoryRepresentation.Constructor -> Spec.Function.Constructor(
+                                name,
+                                type,
+                                memory.info.size,
+                                memory.typeSize,
+                                memory.info.offset
+                        )
                     }
                 } else defined ?: variable ?: throw UnknownExpressionError(name)
             }
