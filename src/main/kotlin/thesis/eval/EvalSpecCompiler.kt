@@ -2,6 +2,7 @@ package thesis.eval
 
 import thesis.preprocess.Processor
 import thesis.preprocess.expressions.LambdaName
+import thesis.preprocess.results.Specs
 import thesis.preprocess.spec.Spec
 import thesis.preprocess.types.UnknownExpressionError
 
@@ -10,11 +11,11 @@ import thesis.preprocess.types.UnknownExpressionError
  *
  * @author Danil Kolikov
  */
-class EvalSpecCompiler : Processor<List<Spec.Function.Guarded>, Map<LambdaName, EvalSpec.Function.Guarded>> {
+class EvalSpecCompiler : Processor<Specs, Map<LambdaName, EvalSpec.Function.Guarded>> {
 
-    override fun process(data: List<Spec.Function.Guarded>): Map<LambdaName, EvalSpec.Function.Guarded> {
+    override fun process(data: Specs): Map<LambdaName, EvalSpec.Function.Guarded> {
         val result = mutableMapOf<LambdaName, EvalSpec.Function.Guarded>()
-        data.forEach { spec ->
+        data.specs.forEach { spec ->
             val evalSpec = spec.toEvalSpec(result) as EvalSpec.Function.Guarded
             result[spec.name] = evalSpec
         }

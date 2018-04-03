@@ -5,6 +5,10 @@
  */
 package thesis.preprocess.results
 
+import thesis.preprocess.expressions.TypeName
+import thesis.preprocess.spec.Spec
+import thesis.preprocess.spec.TypeSpec
+
 data class SortedExpressions(
         val typeDefinitions: List<SimpleType>,
         val typeDeclarations: List<SimpleTypeDeclaration>,
@@ -25,4 +29,9 @@ data class InferredExpressions(
 data class InMemoryExpressions(
         val typeDefinitions: List<InMemoryType>,
         val lambdaDefinitions: List<InferredLambda>
+)
+
+data class Specs(
+        val typeSpecs: List<Pair<TypeName, TypeSpec>>,
+        val specs: List<Spec.Function.Guarded>
 )

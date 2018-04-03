@@ -13,6 +13,9 @@ sealed class TypeSpec {
 
     abstract val end: Int
 
+    val size: Int
+        get() = end - start
+
     data class Literal(
             val name: TypeName,
             override val start: Int
@@ -20,6 +23,14 @@ sealed class TypeSpec {
         override val end = start + 1
 
         override fun toString() = "($name: $start)"
+    }
+
+    data class External(
+            val name: TypeName,
+            val spec: TypeSpec,
+            override val start: Int
+    ) : TypeSpec() {
+        override val end = start + spec.size
     }
 
     data class Sum(

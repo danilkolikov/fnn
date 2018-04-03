@@ -19,6 +19,7 @@ sealed class DataPattern {
 
     data class Variable(
             val name: LambdaName,
+            val typeName: TypeName,
             val type: TypeSpec,
             val start: Int,
             val end: Int

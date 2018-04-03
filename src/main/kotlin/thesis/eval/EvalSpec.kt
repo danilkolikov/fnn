@@ -113,17 +113,18 @@ sealed class EvalSpec {
                                 is DataPattern.Object -> arguments.data[it.position]
                                 is DataPattern.Variable -> {
                                     val data = arguments.data.subList(it.start, it.end)
-                                    it.type.calcPresence(data)
+                                    it.type.calcPresence(data, 0)
                                 }
                             }
                         }.mult().toShort()
 
                 override fun toString() = body.toString()
 
-                private fun TypeSpec.calcPresence(data: List<Short>): Short = when (this) {
-                    is TypeSpec.Literal -> data[start]
-                    is TypeSpec.Product -> this.operands.map { it.calcPresence(data) }.mult().toShort()
-                    is TypeSpec.Sum -> this.operands.map { it.calcPresence(data) }.sum().toShort()
+                private fun TypeSpec.calcPresence(data: List<Short>, offset: Int): Short = when (this) {
+                    is TypeSpec.Literal -> data[offset + start]
+                    is TypeSpec.External -> spec.calcPresence(data, offset + start)
+                    is TypeSpec.Product -> this.operands.map { it.calcPresence(data, offset) }.mult().toShort()
+                    is TypeSpec.Sum -> this.operands.map { it.calcPresence(data, offset) }.sum().toShort()
                 }
 
             }
