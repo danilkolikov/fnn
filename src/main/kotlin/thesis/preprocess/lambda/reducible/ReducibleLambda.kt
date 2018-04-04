@@ -8,6 +8,8 @@ import java.util.*
 /**
  * Executable representation of lambda-expression.
  * During execution expression is eagerly evaluated
+ *
+ * TODO: Make it lazily evaluated for testing
  */
 sealed class ReducibleLambda : Replaceable<ReducibleLambda> {
 
@@ -117,5 +119,13 @@ sealed class ReducibleLambda : Replaceable<ReducibleLambda> {
         }
 
         override fun toString() = "(\\${arguments.joinToString(" ")}. $body)"
+    }
+
+    class Trainable : ReducibleLambda(), Callable {
+        override fun reduce() = this                                    // Can't reduce
+
+        override fun replace(map: Map<String, ReducibleLambda>) = this  // Can't replace
+
+        override fun call(arguments: List<ReducibleLambda>) = this      // Doesn't change after call
     }
 }

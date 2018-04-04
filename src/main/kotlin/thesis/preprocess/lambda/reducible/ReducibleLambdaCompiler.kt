@@ -55,9 +55,7 @@ class ReducibleLambdaCompiler : Processor<InMemoryExpressions, Map<LambdaName, R
         }
 
         private fun Lambda.compile(compiled: Map<LambdaName, ReducibleLambda>): ReducibleLambda = when (this) {
-            is Lambda.Trainable -> throw IllegalStateException(
-                    "Trainable should be made Literal"
-            )
+            is Lambda.Trainable -> ReducibleLambda.Trainable()
             is Lambda.Literal -> {
                 val memory = memoryRepresentations[name]
                 val defined = compiled[name]

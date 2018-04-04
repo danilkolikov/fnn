@@ -10,7 +10,7 @@ class TypeSpec:
         self.size = end - start
 
     @abstractmethod
-    def calc_presence(self, data, offset):
+    def calc_presence(self, data, offset=0):
         pass
 
 
@@ -19,9 +19,8 @@ class LitSpec(TypeSpec):
         super().__init__(start, start + 1)
         self.name = name
 
-    def calc_presence(self, data, offset):
+    def calc_presence(self, data, offset=0):
         presence = data.narrow(1, offset + self.start, 1)
-        # print(self.name, presence)
 
         return presence
 
@@ -31,7 +30,7 @@ class ExtSpec(TypeSpec):
         super().__init__(start, start + spec.size)
         self.spec = spec
 
-    def calc_presence(self, data, offset):
+    def calc_presence(self, data, offset=0):
         return self.spec.calc_presence(data, self.start + offset)
 
 
@@ -40,10 +39,10 @@ class SumSpec(TypeSpec):
         super().__init__(start, end)
         self.operands = operands
 
-    def calc_presence(self, data, offset):
+    def calc_presence(self, data, offset=0):
         presences = torch.cat([spec.calc_presence(data, offset) for spec in self.operands], 1)
         # print(presences, torch.sum(presences, 1))
-        return torch.sum(presences, 1)
+        return torch.sum(presences, 1, keepdim=True)
 
 
 class ProdSpec(TypeSpec):
@@ -52,7 +51,7 @@ class ProdSpec(TypeSpec):
         self.name = name
         self.operands = operands
 
-    def calc_presence(self, data, offset):
+    def calc_presence(self, data, offset=0):
         presences = torch.cat([spec.calc_presence(data, offset) for spec in self.operands], 1)
         # print(presences)
-        return torch.prod(presences, 1)
+        return torch.prod(presences, 1, keepdim=True)

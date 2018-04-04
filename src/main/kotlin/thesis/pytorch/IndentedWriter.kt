@@ -25,6 +25,11 @@ class IndentedWriter(
         return this
     }
 
+    fun appendWithoutIndent(line: String): IndentedWriter {
+        writer.append(line)
+        return this
+    }
+
     fun appendLnWithoutIndent(line: String): IndentedWriter {
         writer.appendln(line)
         return this

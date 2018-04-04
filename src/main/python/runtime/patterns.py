@@ -28,5 +28,4 @@ class VariablePattern(Pattern):
 
     def calc_presence(self, data):
         var = data.narrow(-1, self.start, self.size)
-        # print(data, var)
         return self.type_spec.calc_presence(var)

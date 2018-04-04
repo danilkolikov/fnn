@@ -22,7 +22,7 @@ sealed class Lambda : Expression {
         override fun toString() = "($expression : $type)"
     }
 
-    object Trainable : Lambda() {
+    class Trainable : Lambda() {
         override fun getBoundVariables() = emptySet<String>()
 
         override fun toString() = "@learn"

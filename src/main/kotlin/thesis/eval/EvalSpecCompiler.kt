@@ -30,6 +30,7 @@ class EvalSpecCompiler : Processor<Specs, Map<LambdaName, EvalSpec.Function.Guar
                 processed[name] ?: throw UnknownExpressionError(name)
         )
         is Spec.Object -> EvalSpec.Object(this)
+        is Spec.Function.Trainable -> EvalSpec.Function.Trainable(this)
         is Spec.Function.Constructor -> EvalSpec.Function.Constructor(this)
         is Spec.Function.Guarded -> EvalSpec.Function.Guarded(
                 this,

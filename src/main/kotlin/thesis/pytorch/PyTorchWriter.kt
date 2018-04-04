@@ -17,7 +17,8 @@ object PyTorchWriter {
     fun writeSpecToFile(writer: FileWriter, data: Specs) {
         IndentedWriter(writer, INDENT).write {
             +"import torch"
-            +"from runtime.modules import ConstantLayer, VariableLayer, AnonymousNetLayer, ConstructorLayer, GuardedLayer, ApplicationLayer"
+            +"from runtime.modules import ConstantLayer, VariableLayer, AnonymousNetLayer, ConstructorLayer, GuardedLayer, \\"
+            +"    ApplicationLayer, TrainableLayer"
             +"from runtime.data import DataPointer"
             +"from runtime.types import LitSpec, ExtSpec, SumSpec, ProdSpec"
             +"from runtime.patterns import ObjectPattern, VariablePattern"
@@ -25,7 +26,7 @@ object PyTorchWriter {
             +""
             +"# Type Specifications"
             data.typeSpecs.forEach { (name, spec) ->
-                -"$name = "
+                -"${getTypeSpecName(name)} = "
                 writePython(spec)
                 +""
                 +""
@@ -33,7 +34,7 @@ object PyTorchWriter {
             +""
             +"# Net Specifications"
             data.specs.forEach {
-                -"${it.name}_net = "
+                -"${getNetworkName(it.name)} = "
                 writePython(it)
                 +""
                 +""
@@ -78,7 +79,7 @@ object PyTorchWriter {
             -"VariableLayer.Net(${spec.position})"
         }
         is Spec.Variable.External -> {
-            -"VariableLayer.External(${spec.name}_net)"
+            -"VariableLayer.External(${getNetworkName(spec.name)})"
         }
         is Spec.Function.Anonymous -> {
             +"AnonymousNetLayer("
@@ -89,6 +90,7 @@ object PyTorchWriter {
             }
             -")"
         }
+        is Spec.Function.Trainable -> -"TrainableLayer(${spec.fromTypeSize}, ${getTypeSpecName(spec.toTypeName)})"
         is Spec.Function.Constructor -> -"ConstructorLayer(${spec.fromTypeSize}, ${spec.toTypeSize}, ${spec.offset})"
         is Spec.Function.Guarded -> {
             +"GuardedLayer(cases=["
@@ -110,7 +112,20 @@ object PyTorchWriter {
                         appendLnWithoutIndent(",")
                     }
                 }
-                +"], call=${spec.call}, constants=${spec.constants}, data=${spec.data}, nets=${spec.functions}"
+                -"], "
+                if (!spec.call.isEmpty()) {
+                    appendWithoutIndent("call=${spec.call}, ")
+                }
+                if (!spec.constants.isEmpty()) {
+                    appendWithoutIndent("constants=${spec.constants}, ")
+                }
+                if (!spec.data.isEmpty()) {
+                    appendWithoutIndent("data=${spec.data}, ")
+                }
+                if (!spec.functions.isEmpty()) {
+                    appendWithoutIndent("nets=${spec.functions}")
+                }
+                +""
             }
             -")"
         }
@@ -139,7 +154,11 @@ object PyTorchWriter {
 
     private fun IndentedWriter.writePython(pattern: DataPattern): IndentedWriter = when (pattern) {
         is DataPattern.Object -> -"ObjectPattern(\"${pattern.name}\", ${pattern.position})"
-        is DataPattern.Variable -> -"VariablePattern(\"${pattern.name}\", ${pattern.typeName}, ${pattern.start}, ${pattern.end})"
+        is DataPattern.Variable -> -("VariablePattern(\"${pattern.name}\", ${getTypeSpecName(pattern.typeName)}, " +
+                "${pattern.start}, ${pattern.end})")
     }
 
+    private fun getTypeSpecName(name: String) = name
+
+    private fun getNetworkName(name: String) = "${name}_net"
 }

@@ -63,16 +63,19 @@ class LambdaInferenceProcessor(
                 val (resultType, equations) = lambda.getEquations(localScope, localExpressionsTypes, value.nameMap)
 
                 // Function type (that uses pattern arguments)
-                val functionType = patternsTypes.foldRight(resultType, { arg, res -> FunctionTerm(
-                        FUNCTION_SIGN,
-                        listOf(arg, res)
-                )})
+                val functionType = patternsTypes.foldRight(resultType, { arg, res ->
+                    FunctionTerm(
+                            FUNCTION_SIGN,
+                            listOf(arg, res)
+                    )
+                })
                 system.addAll(equations)
                 system.add(AlgebraicEquation(
                         function,
                         functionType
                 ))
-                scope[name] ?.let {
+                // Add previously declared type of expression
+                scope[name]?.let {
                     system.add(AlgebraicEquation(
                             function,
                             it
@@ -86,8 +89,19 @@ class LambdaInferenceProcessor(
                 scope.putIfAbsent(name, type)
 
                 // Save types of sub-expressions
-                localExpressionsTypes.forEach { (lambda, type) ->
-                    expressionTypes[lambda] = type.replace(solution).toType()
+                localExpressionsTypes.forEach { (localLambda, type) ->
+                    val replacedType = type.replace(solution).toType()
+                    if (localLambda is Lambda.Trainable) {
+                        // Type of trainable should be a function
+                        // whose arguments and return type are algebraic types
+                        val allAlgebraic = replacedType is Type.Function && replacedType.getOperands().all {
+                            it is Type.Literal && definedTypes.contains(it.name)
+                        }
+                        if (!allAlgebraic) {
+                            throw UnsupportedTrainableType(lambda, replacedType)
+                        }
+                    }
+                    expressionTypes[localLambda] = replacedType
                 }
             }
 
@@ -139,18 +153,13 @@ class LambdaInferenceProcessor(
         val equations: List<AlgebraicEquation>
         when (this) {
             is Lambda.Literal -> {
-                resultType = if (nameMap[name] === Lambda.Trainable) {
-                    // TODO: fix this crutch for trainable expression
-                    VariableTerm(name)
-                } else {
-                    scope[name]
-                            ?: throw UnknownExpressionError(name)
-                }
+                resultType = scope[name] ?: throw UnknownExpressionError(name)
                 equations = listOf()
             }
-            is Lambda.Trainable -> throw IllegalStateException(
-                    "Trainable expressions should be replaced to literals"
-            )
+            is Lambda.Trainable -> {
+                resultType = VariableTerm(nameGenerator.next(TRAIN_PREFIX))
+                equations = listOf()
+            }
             is Lambda.TypedExpression -> {
                 val res = expression.getEquations(scope, expressionTypes, nameMap)
                 resultType = res.first
@@ -160,7 +169,7 @@ class LambdaInferenceProcessor(
                 ))
             }
             is Lambda.Abstraction -> {
-                resultType = VariableTerm(nameGenerator.next("t"))
+                resultType = VariableTerm(nameGenerator.next(TYPE_PREFIX))
                 val result = expression.getEquations(scope, expressionTypes, nameMap)
                 val term = arguments.foldRight(result.first, { name, res ->
                     FunctionTerm(
@@ -174,7 +183,7 @@ class LambdaInferenceProcessor(
                 ))
             }
             is Lambda.Application -> {
-                resultType = VariableTerm(nameGenerator.next("t"))
+                resultType = VariableTerm(nameGenerator.next(TYPE_PREFIX))
                 val (funcType, funcEq) = function.getEquations(scope, expressionTypes, nameMap)
                 val argumentsEq = arguments.map { it.getEquations(scope, expressionTypes, nameMap) }
                 val types = argumentsEq.map { it.first }
@@ -192,5 +201,10 @@ class LambdaInferenceProcessor(
         }
         expressionTypes[this] = resultType
         return resultType to equations
+    }
+
+    companion object {
+        private const val TRAIN_PREFIX = "learn"
+        private const val TYPE_PREFIX = "t"
     }
 }

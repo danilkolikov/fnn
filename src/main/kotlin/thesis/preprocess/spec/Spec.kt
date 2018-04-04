@@ -50,6 +50,15 @@ sealed class Spec {
 
         abstract val closurePointer: DataPointer
 
+        data class Trainable(
+                override val type: Type,
+                val fromTypeSize: Int,
+                val toTypeName: TypeName,
+                val toType: TypeSpec
+        ) : Function() {
+            override val closurePointer = DataPointer.START // Assuming trainable to be defined in global scope
+        }
+
         data class Constructor(
                 val name: TypeName,
                 override val type: Type,

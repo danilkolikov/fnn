@@ -196,7 +196,24 @@ class SpecCompiler : Processor<InMemoryExpressions, Specs> {
                 expressionsTypes: Map<Lambda, Type>,
                 dataPointer: DataPointer
         ): Spec = when (this) {
-            is Lambda.Trainable -> throw IllegalStateException("Trainable should be converted to Literals")
+            is Lambda.Trainable -> {
+                val type = expressionsTypes[this] ?: throw UnknownExpressionError(this.toString())
+                // Arguments and result types of trainable are checked to be AlgebraicType-s
+                // See LambdaInferenceProcessor for more info
+                val fromTypeSize = type.getArguments().map {
+                    val typeName = (it as Type.Literal).name
+                    val spec = typeSpecs[typeName] ?: throw UnknownTypeError(typeName)
+                    spec.size
+                }.sum()
+                val toTypeName = (type.getResultType() as Type.Literal).name
+                val toTypeSpec = typeSpecs[toTypeName] ?: throw UnknownTypeError(toTypeName)
+                Spec.Function.Trainable(
+                        type,
+                        fromTypeSize,
+                        toTypeName,
+                        toTypeSpec
+                )
+            }
             is Lambda.TypedExpression -> expression.compile(variables, compiled, expressionsTypes, dataPointer)
             is Lambda.Literal -> {
                 val memory = memoryRepresentations[name]

@@ -59,11 +59,7 @@ class LambdaRenamingProcessor(
             nameGenerator: NameGenerator
     ): Lambda = when (this) {
         is Lambda.Literal -> renameMap[name]?.let { Lambda.Literal(it) } ?: this
-        is Lambda.Trainable -> {
-            val newName = nameGenerator.next(LEARN_PREFIX)
-            nameMap[newName] = this
-            Lambda.Literal(newName)
-        }
+        is Lambda.Trainable -> this // Preserve trainable expression
         is Lambda.TypedExpression -> Lambda.TypedExpression(
                 expression.rename(renameMap, nameMap, nameGenerator),
                 type
@@ -86,9 +82,5 @@ class LambdaRenamingProcessor(
                     expression.rename(renameMap + newNames, nameMap, nameGenerator)
             )
         }
-    }
-
-    companion object {
-        private const val LEARN_PREFIX = "learn"
     }
 }

@@ -61,6 +61,12 @@ sealed class EvalSpec {
 
         abstract val spec: Spec.Function
 
+        class Trainable(
+                override val spec: Spec.Function.Trainable
+        ) : Function() {
+            override fun eval(arguments: DataBag) = throw IllegalArgumentException("Can't evaluate $spec")
+        }
+
         class Constructor(
                 override val spec: Spec.Function.Constructor
         ) : Function() {

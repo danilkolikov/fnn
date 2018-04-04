@@ -79,7 +79,7 @@ fun LambdaProgramParser.LambdaApplicationOperandContext.toAst(): Lambda {
         return Lambda.Literal(terminal.text)
     }
     if (LEARN_KEYWORD() != null) {
-        return Lambda.Trainable
+        return Lambda.Trainable()
     }
     if (expr != null && type != null) {
         return Lambda.TypedExpression(
