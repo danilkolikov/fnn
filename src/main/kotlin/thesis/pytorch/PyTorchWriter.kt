@@ -1,6 +1,9 @@
 package thesis.pytorch
 
+import thesis.preprocess.expressions.type.raw.RawType
+import thesis.preprocess.results.InstanceSignature
 import thesis.preprocess.results.Specs
+import thesis.preprocess.results.TypeSignature
 import thesis.preprocess.spec.DataPattern
 import thesis.preprocess.spec.Spec
 import thesis.preprocess.spec.TypeSpec
@@ -20,7 +23,7 @@ object PyTorchWriter {
             +"from runtime.modules import ConstantLayer, VariableLayer, AnonymousNetLayer, ConstructorLayer, GuardedLayer, \\"
             +"    ApplicationLayer, TrainableLayer"
             +"from runtime.data import DataPointer"
-            +"from runtime.types import LitSpec, ExtSpec, SumSpec, ProdSpec"
+            +"from runtime.types import TypeSpec, LitSpec, ExtSpec, ProdSpec"
             +"from runtime.patterns import ObjectPattern, VariablePattern"
             +""
             +""
@@ -33,44 +36,45 @@ object PyTorchWriter {
             }
             +""
             +"# Net Specifications"
-            data.specs.forEach {
-                -"${getNetworkName(it.name)} = "
-                writePython(it)
+            data.instances.forEach { name, type, instance ->
+                -"${getNetworkName(name, type)} = "
+                writePython(instance)
                 +""
                 +""
             }
         }
     }
 
-    private fun IndentedWriter.writePython(spec: TypeSpec): IndentedWriter = when (spec) {
-        is TypeSpec.Literal -> -"LitSpec(\"${spec.name}\", start=${spec.start})"
-        is TypeSpec.External -> -"ExtSpec(${spec.name}, start=${spec.start})"
-        is TypeSpec.Sum -> {
-            +"SumSpec(["
-            indent {
-                spec.operands.forEach {
-                    writePython(it)
-                    appendLnWithoutIndent(",")
+    private fun IndentedWriter.writePython(spec: TypeSpec): IndentedWriter {
+        +"TypeSpec(operands=["
+        indent {
+            spec.structure.operands.forEach { operand ->
+                when (operand) {
+                    is TypeSpec.Structure.SumOperand.Object -> -"LitSpec(${operand.start})"
+                    is TypeSpec.Structure.SumOperand.Product -> {
+                        +"ProdSpec(operands=["
+                        indent {
+                            var curOffset = 0
+                            operand.operands.forEach {
+                                -"ExtSpec(${it.name}, start=$curOffset)"
+                                appendLnWithoutIndent(",")
+                                curOffset += it.structure.size
+                            }
+                        }
+                        -"], start=${operand.start})"
+                    }
                 }
+                appendLnWithoutIndent(",")
             }
-            -"], start=${spec.start}, end=${spec.end})"
         }
-        is TypeSpec.Product -> {
-            +"ProdSpec(\"${spec.name}\", ["
-            indent {
-                spec.operands.forEach {
-                    writePython(it)
-                    appendLnWithoutIndent(",")
-                }
-            }
-            -"], start=${spec.start}, end=${spec.end})"
-        }
+        -"])"
+        return this
     }
 
     private fun IndentedWriter.writePython(spec: Spec): IndentedWriter = when (spec) {
         is Spec.Object -> {
             // TODO: Save values to npy files
-            -"ConstantLayer(torch.Tensor(${spec.data}))"
+            -"ConstantLayer(size=${spec.size}, position=${spec.position})"
         }
         is Spec.Variable.Object -> {
             -"VariableLayer.Data(${spec.positions.first}, ${spec.positions.second})"
@@ -79,7 +83,7 @@ object PyTorchWriter {
             -"VariableLayer.Net(${spec.position})"
         }
         is Spec.Variable.External -> {
-            -"VariableLayer.External(${getNetworkName(spec.name)})"
+            -"VariableLayer.External(${getNetworkName(spec.signature, spec.typeSignature)})"
         }
         is Spec.Function.Anonymous -> {
             +"AnonymousNetLayer("
@@ -160,5 +164,14 @@ object PyTorchWriter {
 
     private fun getTypeSpecName(name: String) = name
 
-    private fun getNetworkName(name: String) = "${name}_net"
+    private fun getNetworkName(
+            instanceSignature: InstanceSignature,
+            typeSignature: TypeSignature
+    ) = "${(instanceSignature + typeSignature.map { it.toPython() }).joinToString("_")}_net"
+
+    private fun RawType.toPython(): String = when (this) {
+        is RawType.Literal -> name
+        is RawType.Variable -> throw IllegalStateException("Variable $name is not instantiated")
+        is RawType.Function -> "_${from.toPython()}_to_${to.toPython()}_"
+    }
 }

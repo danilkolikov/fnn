@@ -1,12 +1,9 @@
 package thesis
 
-import thesis.eval.DataBag
-import thesis.eval.EvalSpecCompiler
 import thesis.preprocess.ast.ExpressionSorter
 import thesis.preprocess.ast.ReaderParser
-import thesis.preprocess.memory.TypeMemoryProcessor
-import thesis.preprocess.renaming.ExpressionRenamingProcessor
-import thesis.preprocess.renaming.NameGenerator
+import thesis.preprocess.spec.ParametrisedSpecCompiler
+import thesis.utils.NameGenerator
 import thesis.preprocess.spec.SpecCompiler
 import thesis.preprocess.types.TypeInferenceProcessor
 import thesis.pytorch.PyTorchWriter
@@ -23,16 +20,14 @@ fun main(args: Array<String>) {
         println(sorted)
 
         val nameGenerator = NameGenerator()
-        val renamed = ExpressionRenamingProcessor(nameGenerator).process(sorted)
-        println(renamed)
 
-        val inferred = TypeInferenceProcessor(nameGenerator).process(renamed)
+        val inferred = TypeInferenceProcessor(nameGenerator).process(sorted)
         println(inferred)
 
-        val memory = TypeMemoryProcessor().process(inferred)
-        println(memory)
+        val parametrisedSpec = ParametrisedSpecCompiler().process(inferred)
+        println(parametrisedSpec)
 
-        val specs = SpecCompiler().process(memory)
+        val specs = SpecCompiler().process(parametrisedSpec)
         println(specs)
 
 //        val compiled = EvalSpecCompiler().process(specs)

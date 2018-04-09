@@ -9,5 +9,5 @@ sealed class EvalResult {
 
     data class Data(val data: List<Short>) : EvalResult()
 
-    data class Function(val spec: EvalSpec.Function) : EvalResult()
+    data class Function(val spec: EvalSpec) : EvalResult()
 }

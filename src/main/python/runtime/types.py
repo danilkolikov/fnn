@@ -4,6 +4,53 @@ import torch
 
 
 class TypeSpec:
+    def __init__(self, operands):
+        self.operands = operands
+        self.start = operands[0].start
+        self.end = operands[-1].end
+        self.size = self.end - self.start
+
+    def calc_presence(self, data, offset=0):
+        presences = torch.cat([spec.calc_presence(data, offset) for spec in self.operands], 1)
+        return torch.sum(presences, 1, keepdim=True)
+
+
+class LitSpec:
+    def __init__(self, start):
+        self.start = start
+        self.end = start + 1
+        self.size = 1
+
+    def calc_presence(self, data, offset=0):
+        presence = data.narrow(1, offset + self.start, 1)
+
+        return presence
+
+
+class ExtSpec:
+    def __init__(self, spec, start):
+        self.start = start
+        self.spec = spec
+        self.end = start + spec.size
+        self.size = spec.size
+
+    def calc_presence(self, data, offset=0):
+        return self.spec.calc_presence(data, self.start + offset)
+
+
+class ProdSpec:
+    def __init__(self, operands, start):
+        self.operands = operands
+        self.start = start
+        self.size = sum(map(lambda spec: spec.size, operands))
+        self.end = self.start + self.size
+
+    def calc_presence(self, data, offset=0):
+        presences = torch.cat([spec.calc_presence(data, offset) for spec in self.operands], 1)
+        return torch.prod(presences, 1, keepdim=True)
+
+
+class LegacyTypeSpec:
     def __init__(self, start, end):
         self.start = start
         self.end = end
@@ -14,7 +61,7 @@ class TypeSpec:
         pass
 
 
-class LitSpec(TypeSpec):
+class LegacyLitSpec(LegacyTypeSpec):
     def __init__(self, name, start):
         super().__init__(start, start + 1)
         self.name = name
@@ -25,7 +72,7 @@ class LitSpec(TypeSpec):
         return presence
 
 
-class ExtSpec(TypeSpec):
+class LegacyExtSpec(LegacyTypeSpec):
     def __init__(self, spec, start):
         super().__init__(start, start + spec.size)
         self.spec = spec
@@ -34,18 +81,17 @@ class ExtSpec(TypeSpec):
         return self.spec.calc_presence(data, self.start + offset)
 
 
-class SumSpec(TypeSpec):
+class LegacySumSpec(LegacyTypeSpec):
     def __init__(self, operands, start, end):
         super().__init__(start, end)
         self.operands = operands
 
     def calc_presence(self, data, offset=0):
         presences = torch.cat([spec.calc_presence(data, offset) for spec in self.operands], 1)
-        # print(presences, torch.sum(presences, 1))
         return torch.sum(presences, 1, keepdim=True)
 
 
-class ProdSpec(TypeSpec):
+class LegacyProdSpec(LegacyTypeSpec):
     def __init__(self, name, operands, start, end):
         super().__init__(start, end)
         self.name = name
@@ -53,5 +99,4 @@ class ProdSpec(TypeSpec):
 
     def calc_presence(self, data, offset=0):
         presences = torch.cat([spec.calc_presence(data, offset) for spec in self.operands], 1)
-        # print(presences)
         return torch.prod(presences, 1, keepdim=True)

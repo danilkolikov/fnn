@@ -1,17 +1,19 @@
 package thesis.preprocess.spec
 
 import thesis.preprocess.expressions.LambdaName
-import thesis.preprocess.expressions.Type
 import thesis.preprocess.expressions.TypeName
+import thesis.preprocess.expressions.lambda.Typed
+import thesis.preprocess.expressions.type.Type
+import thesis.preprocess.results.InstanceSignature
+import thesis.preprocess.results.TypeSignature
+
 
 /**
  * Specification of eagerly evaluated expression
  *
  * @author Danil Kolikov
  */
-sealed class Spec {
-
-    abstract val type: Type
+sealed class Spec : Typed<Type> {
 
     sealed class Variable : Spec() {
         data class Object(
@@ -32,18 +34,20 @@ sealed class Spec {
         }
 
         data class External(
-                val name: LambdaName,
+                val signature: InstanceSignature,
+                val typeSignature: TypeSignature,
                 override val type: Type,
-                val function: Spec.Function.Guarded
+                val function: Spec
         ) : Spec.Variable()
     }
 
     data class Object(
             override val type: Type,
-            val data: List<Short>
+            val size: Int,
+            val position: Int
     ) : Spec() {
 
-        override fun toString() = "[$type: $data]"
+        override fun toString() = "[$type: $position]"
     }
 
     sealed class Function : Spec() {

@@ -1,52 +1,53 @@
 package thesis.preprocess.spec
 
 import thesis.preprocess.expressions.TypeName
+import thesis.preprocess.expressions.type.Type
 
 /**
  * Specification of algebraic type for pattern matching
  *
  * @author Danil Kolikov
  */
-sealed class TypeSpec {
+data class TypeSpec(
+        val name: TypeName,
+        val structure: Structure,
+        val constructors: LinkedHashMap<TypeName, ConstructorInfo>
+) {
 
-    abstract val start: Int
-
-    abstract val end: Int
-
-    val size: Int
-        get() = end - start
-
-    data class Literal(
+    data class ConstructorInfo(
             val name: TypeName,
-            override val start: Int
-    ) : TypeSpec() {
-        override val end = start + 1
+            val type: Type,
+            val start: Int,
+            val arguments: List<TypeSpec>,
+            val toType: Structure
+    )
 
-        override fun toString() = "($name: $start)"
-    }
+    data class Structure(
+            val operands: List<SumOperand>
+    ) : InMemoryType {
 
-    data class External(
-            val name: TypeName,
-            val spec: TypeSpec,
-            override val start: Int
-    ) : TypeSpec() {
-        override val end = start + spec.size
-    }
+        override val start = operands.first().start
+        override val end = operands.last().end
 
-    data class Sum(
-            val operands: List<TypeSpec>,
-            override val start: Int,
-            override val end: Int
-    ) : TypeSpec() {
-        override fun toString() = "(Sum: ($start, $end), ${operands.joinToString(" ")})"
-    }
+        sealed class SumOperand : InMemoryType {
 
-    data class Product(
-            val name: TypeName,
-            val operands: List<TypeSpec>,
-            override val start: Int,
-            override val end: Int
-    ) : TypeSpec() {
-        override fun toString() = "($name: ($start, $end), ${operands.joinToString(" ")})"
+            abstract val name: TypeName
+
+            data class Object(
+                    override val name: TypeName,
+                    override val start: Int
+            ) : SumOperand() {
+                override val end = start + 1
+            }
+
+            data class Product(
+                    override val name: TypeName,
+                    val operands: List<TypeSpec>,
+                    override val start: Int
+            ) : SumOperand() {
+                override val end = start + operands.map { it.structure.size }.sum()
+            }
+        }
+
     }
 }

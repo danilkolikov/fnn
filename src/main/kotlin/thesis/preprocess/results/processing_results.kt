@@ -5,33 +5,53 @@
  */
 package thesis.preprocess.results
 
+import thesis.preprocess.expressions.LambdaName
 import thesis.preprocess.expressions.TypeName
+import thesis.preprocess.expressions.algebraic.type.AlgebraicType
+import thesis.preprocess.expressions.algebraic.type.RawAlgebraicType
+import thesis.preprocess.expressions.lambda.LambdaWithPatterns
+import thesis.preprocess.expressions.lambda.typed.TypedLambda
+import thesis.preprocess.expressions.lambda.typed.TypedPattern
+import thesis.preprocess.expressions.lambda.untyped.UntypedLambda
+import thesis.preprocess.expressions.lambda.untyped.UntypedPattern
+import thesis.preprocess.expressions.type.Parametrised
+import thesis.preprocess.expressions.type.Type
+import thesis.preprocess.expressions.type.raw.RawType
+import thesis.preprocess.spec.ParametrisedSpec
 import thesis.preprocess.spec.Spec
 import thesis.preprocess.spec.TypeSpec
 
+typealias UntypedLambdaWithPatterns = LambdaWithPatterns<UntypedLambda, UntypedPattern>
+
 data class SortedExpressions(
-        val typeDefinitions: List<SimpleType>,
-        val typeDeclarations: List<SimpleTypeDeclaration>,
-        val lambdaDefinitions: List<SimpleLambda>
+        val typeDefinitions: LinkedHashMap<TypeName, RawAlgebraicType>,
+        val typeDeclarations: LinkedHashMap<LambdaName, Parametrised<RawType>>,
+        val lambdaDefinitions: LinkedHashMap<LambdaName, List<UntypedLambdaWithPatterns>>
 )
 
-data class RenamedExpressions(
-        val typeDefinitions: List<RenamedType>,
-        val typeDeclarations: List<RenamedTypeDeclaration>,
-        val lambdaDefinitions: List<RenamedLambda>
+typealias TypedLambdaWithPatterns = LambdaWithPatterns<TypedLambda<Type>, TypedPattern<Type>>
+
+data class InferredLambda(
+        val type: Parametrised<Type>,
+        val expressions: List<TypedLambdaWithPatterns>
 )
 
 data class InferredExpressions(
-        val typeDefinitions: List<InferredType>,
-        val lambdaDefinitions: List<InferredLambda>
+        val typeDefinitions: LinkedHashMap<TypeName, AlgebraicType>,
+        val lambdaDefinitions: LinkedHashMap<LambdaName, InferredLambda>
 )
 
-data class InMemoryExpressions(
-        val typeDefinitions: List<InMemoryType>,
-        val lambdaDefinitions: List<InferredLambda>
+typealias InstanceSignature = List<LambdaName>
+
+typealias TypeSignature = List<RawType>
+
+data class ParametrisedSpecs(
+        val typeSpecs: LinkedHashMap<TypeName, TypeSpec>,
+        val instances: Instances<ParametrisedSpec>
 )
 
 data class Specs(
-        val typeSpecs: List<Pair<TypeName, TypeSpec>>,
-        val specs: List<Spec.Function.Guarded>
+        val typeSpecs: LinkedHashMap<TypeName, TypeSpec>,
+        val instances: Instances<Spec>,
+        val parametrisedInstances: Instances<ParametrisedSpec>
 )

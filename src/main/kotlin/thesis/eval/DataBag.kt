@@ -9,7 +9,7 @@ import thesis.preprocess.spec.DataPointer
  */
 data class DataBag(
         val data: List<Short>,
-        val functions: List<EvalSpec.Function>
+        val functions: List<EvalSpec>
 ) {
 
     fun append(arguments: DataBag) = DataBag(

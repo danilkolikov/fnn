@@ -11,9 +11,9 @@ class ConstantLayer(Module):
     Returns constant value
     """
 
-    def __init__(self, value):
+    def __init__(self, size, position):
         super().__init__()
-        self.value = Variable(value)
+        self.value = Variable(torch.Tensor([1 if i == position else 0 for i in range(size)]))
 
     def forward(self, data_bag):
         return self.value.repeat(data_bag.data.size()[0], 1)

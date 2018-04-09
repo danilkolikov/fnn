@@ -1,9 +1,9 @@
 package thesis.preprocess.types
 
 import thesis.preprocess.Processor
-import thesis.preprocess.renaming.NameGenerator
 import thesis.preprocess.results.InferredExpressions
-import thesis.preprocess.results.RenamedExpressions
+import thesis.preprocess.results.SortedExpressions
+import thesis.utils.NameGenerator
 
 /**
  * Infers types for expressions of lambda program
@@ -12,9 +12,9 @@ import thesis.preprocess.results.RenamedExpressions
  */
 class TypeInferenceProcessor(
         private val nameGenerator: NameGenerator
-) : Processor<RenamedExpressions, InferredExpressions> {
-    override fun process(data: RenamedExpressions): InferredExpressions {
-        val typeInfo = AlgebraicTypeInferenceProcessor(nameGenerator)
+) : Processor<SortedExpressions, InferredExpressions> {
+    override fun process(data: SortedExpressions): InferredExpressions {
+        val typeInfo = AlgebraicTypeInferenceProcessor()
                 .process(data.typeDefinitions)
         val lambdaDeclarations = TypeDeclarationInferenceProcessor(typeInfo)
                 .process(data.typeDeclarations)

@@ -1,23 +1,11 @@
 package thesis.preprocess.types
 
-import thesis.preprocess.expressions.Type
+import thesis.preprocess.expressions.algebraic.term.AlgebraicEquation
+import thesis.preprocess.expressions.algebraic.term.AlgebraicTerm
 import thesis.preprocess.expressions.TypeName
-import thesis.utils.*
-
-internal const val FUNCTION_SIGN = "→"
-
-fun Type.toAlgebraicTerm(): AlgebraicTerm = when (this) {
-    is Type.Literal -> VariableTerm(name)
-    is Type.Function -> FunctionTerm(FUNCTION_SIGN, listOf(from.toAlgebraicTerm(), to.toAlgebraicTerm()))
-}
-
-fun AlgebraicTerm.toType(): Type = when (this) {
-    is VariableTerm -> Type.Literal(name)
-    is FunctionTerm -> Type.Function(
-            arguments.first().toType(),
-            arguments.last().toType()
-    )
-}
+import thesis.utils.Edge
+import thesis.utils.UndirectedGraph
+import thesis.utils.solveSystem
 
 fun List<AlgebraicEquation>.inferTypes(knownTypes: Set<TypeName>): Map<String, AlgebraicTerm> {
     val solution = solveSystem(this)
@@ -32,7 +20,7 @@ private fun renameTypes(
     // Find connected components and set human-readable names to types in them
     val edges = mutableListOf<Edge<String>>()
     for ((left, right) in solution) {
-        if (right is VariableTerm) {
+        if (right is AlgebraicTerm.Variable) {
             edges.add(Edge(left, right.name))
         }
     }
@@ -46,7 +34,7 @@ private fun renameTypes(
     val connectedComponents = components
             .filter { (name, value) -> name != value }
             .map { (name, value) ->
-                name to VariableTerm(value)
+                name to AlgebraicTerm.Variable(value)
             }
             .toMap()
     return connectedComponents + solution

@@ -1,7 +1,7 @@
 package thesis.eval
 
 import thesis.preprocess.Processor
-import thesis.preprocess.expressions.LambdaName
+import thesis.preprocess.results.Instances
 import thesis.preprocess.results.Specs
 import thesis.preprocess.spec.Spec
 import thesis.preprocess.types.UnknownExpressionError
@@ -11,23 +11,25 @@ import thesis.preprocess.types.UnknownExpressionError
  *
  * @author Danil Kolikov
  */
-class EvalSpecCompiler : Processor<Specs, Map<LambdaName, EvalSpec.Function.Guarded>> {
+class EvalSpecCompiler : Processor<Specs, Instances<EvalSpec>> {
 
-    override fun process(data: Specs): Map<LambdaName, EvalSpec.Function.Guarded> {
-        val result = mutableMapOf<LambdaName, EvalSpec.Function.Guarded>()
-        data.specs.forEach { spec ->
+    override fun process(data: Specs): Instances<EvalSpec> {
+        val result = Instances<EvalSpec>()
+        data.instances.forEach { signature, type, spec ->
             val evalSpec = spec.toEvalSpec(result) as EvalSpec.Function.Guarded
-            result[spec.name] = evalSpec
+            result.set(signature, type, evalSpec)
         }
         return result
     }
 
-    private fun Spec.toEvalSpec(processed: Map<LambdaName, EvalSpec.Function.Guarded>): EvalSpec = when (this) {
+    private fun Spec.toEvalSpec(processed: Instances<EvalSpec>): EvalSpec = when (this) {
         is Spec.Variable.Object -> EvalSpec.Variable.Object(this)
         is Spec.Variable.Function -> EvalSpec.Variable.Function(this)
         is Spec.Variable.External -> EvalSpec.Variable.External(
                 this,
-                processed[name] ?: throw UnknownExpressionError(name)
+                processed.get(signature, typeSignature) ?: throw UnknownExpressionError(
+                        signature.toString()
+                )
         )
         is Spec.Object -> EvalSpec.Object(this)
         is Spec.Function.Trainable -> EvalSpec.Function.Trainable(this)

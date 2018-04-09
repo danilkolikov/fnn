@@ -39,22 +39,24 @@ sealed class EvalSpec {
 
         class External(
                 val spec: Spec.Variable.External,
-                val function: EvalSpec.Function.Guarded
+                val function: EvalSpec
         ) : Variable() {
 
             override fun eval(arguments: DataBag) = EvalResult.Function(
                     function
             )
 
-            override fun toString() = spec.name
+            override fun toString() = spec.signature.toString()
         }
     }
 
     class Object(private val spec: Spec.Object) : EvalSpec() {
 
-        override fun eval(arguments: DataBag) = EvalResult.Data(spec.data)
+        override fun eval(arguments: DataBag) = EvalResult.Data(
+                List(spec.size, { (if (it == spec.position) 1 else 0).toShort() })
+        )
 
-        override fun toString() = "[${spec.type}: ${spec.data}]"
+        override fun toString() = "[${spec.type}: ${spec.position}]"
     }
 
     sealed class Function : EvalSpec() {
@@ -126,13 +128,19 @@ sealed class EvalSpec {
 
                 override fun toString() = body.toString()
 
-                private fun TypeSpec.calcPresence(data: List<Short>, offset: Int): Short = when (this) {
-                    is TypeSpec.Literal -> data[offset + start]
-                    is TypeSpec.External -> spec.calcPresence(data, offset + start)
-                    is TypeSpec.Product -> this.operands.map { it.calcPresence(data, offset) }.mult().toShort()
-                    is TypeSpec.Sum -> this.operands.map { it.calcPresence(data, offset) }.sum().toShort()
-                }
-
+                private fun TypeSpec.calcPresence(data: List<Short>, offset: Int): Short = structure.operands.map {
+                    when (it) {
+                        is TypeSpec.Structure.SumOperand.Object -> data[offset + it.start]
+                        is TypeSpec.Structure.SumOperand.Product -> {
+                            var curStart = offset
+                            it.operands.map {
+                                val start = curStart
+                                curStart += it.structure.size
+                                it.calcPresence(data, start)
+                            }.mult().toShort()
+                        }
+                    }
+                }.sum().toShort()
             }
         }
 
@@ -166,7 +174,7 @@ sealed class EvalSpec {
 
             val func = (resolved.first() as? EvalResult.Function ?: throw IllegalArgumentException(
                     "First operand of application should be a function, got ${resolved.first()}"
-            )).spec
+            )).spec as EvalSpec.Function
 
             val args = resolved.drop(1)
             val data = spec.data.flatMap { (args[it] as EvalResult.Data).data }

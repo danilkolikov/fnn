@@ -6,10 +6,11 @@
 package thesis.preprocess.ast
 
 import thesis.LambdaProgramParser
-import thesis.preprocess.expressions.AlgebraicType
-import thesis.preprocess.expressions.Lambda
-import thesis.preprocess.expressions.Pattern
-import thesis.preprocess.expressions.Type
+import thesis.preprocess.expressions.algebraic.type.RawAlgebraicType
+import thesis.preprocess.expressions.lambda.untyped.UntypedLambda
+import thesis.preprocess.expressions.lambda.untyped.UntypedPattern
+import thesis.preprocess.expressions.type.Parametrised
+import thesis.preprocess.expressions.type.raw.RawType
 
 fun LambdaProgramParser.ProgramContext.toAst() = LambdaProgram(
         expression().map { it.toAst() }
@@ -37,20 +38,18 @@ fun LambdaProgramParser.TypeDefinitionContext.toAst(): TypeDefinition {
     )
 }
 
-fun LambdaProgramParser.TypeLiteralContext.toAst() = AlgebraicType.Literal(text)
+fun LambdaProgramParser.TypeLiteralContext.toAst() = RawAlgebraicType.SumOperand.Literal(text)
 
-fun LambdaProgramParser.TypeExpressionContext.toAst(): AlgebraicType {
+fun LambdaProgramParser.TypeExpressionContext.toAst(): RawAlgebraicType {
     val operands = typeSumOperand().map { it.toAst() }
-    return if (operands.size == 1) operands.first() else AlgebraicType.Sum(operands)
+    return RawAlgebraicType(operands)
 }
 
-fun LambdaProgramParser.TypeSumOperandContext.toAst(): AlgebraicType {
-    if (inner != null) {
-        return inner.toAst()
-    }
-    val name = typeLiteral().toAst().name
-    val operands = typeSumOperand().map { it.toAst() }
-    return if (operands.isEmpty()) AlgebraicType.Literal(name) else AlgebraicType.Product(name, operands)
+fun LambdaProgramParser.TypeSumOperandContext.toAst(): RawAlgebraicType.SumOperand {
+    val name = typeLiteral().first().toAst().name
+    val operands = typeLiteral().drop(1).map { it.toAst() }
+    return if (operands.isEmpty()) RawAlgebraicType.SumOperand.Literal(name)
+    else RawAlgebraicType.SumOperand.Product(name, operands)
 }
 
 fun LambdaProgramParser.LambdaDefinitionContext.toAst(): LambdaDefinition {
@@ -63,26 +62,34 @@ fun LambdaProgramParser.LambdaDefinitionContext.toAst(): LambdaDefinition {
     )
 }
 
-fun LambdaProgramParser.LambdaExpressionContext.toAst(): Lambda {
+fun LambdaProgramParser.LambdaExpressionContext.toAst(): UntypedLambda {
     val operands = lambdaApplicationOperand().map { it.toAst() }
     if (operands.size == 1) {
         return operands.first()
     }
-    return Lambda.Application(
+    return UntypedLambda.Application(
             operands.first(),
             operands.drop(1)
     )
 }
 
-fun LambdaProgramParser.LambdaApplicationOperandContext.toAst(): Lambda {
+fun LambdaProgramParser.LambdaApplicationOperandContext.toAst(): UntypedLambda {
     if (terminal != null) {
-        return Lambda.Literal(terminal.text)
+        return UntypedLambda.Literal(terminal.text)
     }
     if (LEARN_KEYWORD() != null) {
-        return Lambda.Trainable()
+        return UntypedLambda.Trainable()
+    }
+    if (LET_KEYWORD() != null && letBindings() != null && body != null) {
+        val body = body.toAst()
+        val bindings = letBindings().toAst()
+        return UntypedLambda.LetAbstraction(
+                bindings,
+                body
+        )
     }
     if (expr != null && type != null) {
-        return Lambda.TypedExpression(
+        return UntypedLambda.TypedExpression(
                 expr.toAst(),
                 type.toAst()
         )
@@ -91,26 +98,39 @@ fun LambdaProgramParser.LambdaApplicationOperandContext.toAst(): Lambda {
         return inner.toAst()
     }
     if (lambdaName() != null && body != null) {
-        return Lambda.Abstraction(
-                lambdaName().map { it.text },
+        return UntypedLambda.Abstraction(
+                lambdaName().map { UntypedLambda.Literal(it.text) },
                 body.toAst()
         )
     }
     throw IllegalStateException("Unexpected AST node")
 }
 
-fun LambdaProgramParser.TypeDeclarationContext.toAst(): Type {
-    val first = typeDeclarationOperand().toAst()
-    val rest = typeDeclaration().map { it.toAst() }
-    if (rest.isEmpty()) {
-        return first
-    }
-    return (listOf(first) + rest).reduceRight({ t, res -> Type.Function(t, res) })
+fun LambdaProgramParser.LetBindingsContext.toAst() = letBinding().map { it.toAst() }
+
+fun LambdaProgramParser.LetBindingContext.toAst(): UntypedLambda.LetAbstraction.Binding {
+    val name = lambdaName().text
+    val expression = lambdaExpression().toAst()
+    return UntypedLambda.LetAbstraction.Binding(name, expression)
 }
 
-fun LambdaProgramParser.TypeDeclarationOperandContext.toAst(): Type {
+fun LambdaProgramParser.ParametrisedTypeDeclarationContext.toAst(): Parametrised<RawType> {
+    val type = typeDeclaration().toAst()
+    val parameters = FORALL_KEYWORD()?.let { typeVariable().map { it.text } } ?: emptyList()
+    return type.bindVariables(parameters)
+}
+
+fun LambdaProgramParser.TypeDeclarationContext.toAst(): RawType {
+    val operands = typeDeclarationOperand().map { it.toAst() }
+    return operands.reduceRight({ t, res -> RawType.Function(t, res) })
+}
+
+fun LambdaProgramParser.TypeDeclarationOperandContext.toAst(): RawType {
     if (typeLiteral() != null) {
-        return Type.Literal(typeLiteral().text)
+        return RawType.Literal(typeLiteral().text)
+    }
+    if (typeVariable() != null) {
+        return RawType.Variable(typeVariable().text)
     }
     if (typeDeclaration() != null) {
         return typeDeclaration().toAst()
@@ -121,19 +141,19 @@ fun LambdaProgramParser.TypeDeclarationOperandContext.toAst(): Type {
 fun LambdaProgramParser.LambdaTypeDeclarationContext.toAst(): LambdaTypeDeclaration {
     return LambdaTypeDeclaration(
             lambdaName().text,
-            typeDeclaration().toAst()
+            parametrisedTypeDeclaration().toAst()
     )
 }
 
-fun LambdaProgramParser.PatternExpressionContext.toAst(): Pattern {
+fun LambdaProgramParser.PatternExpressionContext.toAst(): UntypedPattern {
     if (lambdaName() != null) {
-        return Pattern.Variable(lambdaName().text)
+        return UntypedPattern.Variable(lambdaName().text)
     }
     if (name != null) {
-        return Pattern.Object(name.text)
+        return UntypedPattern.Object(name.text)
     }
     if (constructor != null) {
-        return Pattern.Constructor(
+        return UntypedPattern.Constructor(
                 constructor.text,
                 patternExpression().map { it.toAst() }
         )
