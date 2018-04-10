@@ -22,6 +22,7 @@ object PyTorchWriter {
             +"import torch"
             +"from runtime.modules import ConstantLayer, VariableLayer, AnonymousNetLayer, ConstructorLayer, GuardedLayer, \\"
             +"    ApplicationLayer, TrainableLayer"
+            +"from runtime.poly import TrainablePolyNet"
             +"from runtime.data import DataPointer"
             +"from runtime.types import TypeSpec, LitSpec, ExtSpec, ProdSpec"
             +"from runtime.patterns import ObjectPattern, VariablePattern"
@@ -34,6 +35,27 @@ object PyTorchWriter {
                 +""
                 +""
             }
+            +""
+            +"# Poly-net specifications"
+            data.trainable.forEach { name, instances ->
+                instances.forEachIndexed { index, parametrisedTrainableSpec ->
+                    val sizes = parametrisedTrainableSpec.argumentTypes.joinToString(", ") { it?.toString() ?: "None" }
+                    val resultSize = parametrisedTrainableSpec.resultType ?: "None"
+                    +"${getPolyNetName(name, index)} = TrainablePolyNet([$sizes], $resultSize)"
+                }
+                +""
+            }
+            +""
+            +"# Update instances - this method should be called after each backprop on net with polymorphic @learn"
+            +"def update_instances():"
+            indent {
+                data.trainable.forEach { name, instances ->
+                    instances.forEachIndexed { index, _ ->
+                        +"${getPolyNetName(name, index)}.update_instances()"
+                    }
+                }
+            }
+            +""
             +""
             +"# Net Specifications"
             data.instances.forEach { name, type, instance ->
@@ -94,7 +116,18 @@ object PyTorchWriter {
             }
             -")"
         }
-        is Spec.Function.Trainable -> -"TrainableLayer(${spec.fromTypeSize}, ${getTypeSpecName(spec.toTypeName)})"
+        is Spec.Function.Trainable -> {
+            val polyName = getPolyNetName(spec.instanceSignature, spec.instancePosition)
+            val args = mutableListOf<String>()
+            if (!spec.instantiatedArgs.isEmpty()) {
+                args.add("arguments_types=[${spec.instantiatedArgs.joinToString(", ")}]")
+            }
+            if (spec.instantiatedResult != null) {
+                args.add("result_type=${getTypeSpecName(spec.instantiatedResult)}")
+            }
+            args.add("data_pointer=DataPointer(${spec.dataPointer.dataOffset}, ${spec.dataPointer.functionsCount})")
+            -"$polyName.instantiate(${args.joinToString(", ")})"
+        }
         is Spec.Function.Constructor -> -"ConstructorLayer(${spec.fromTypeSize}, ${spec.toTypeSize}, ${spec.offset})"
         is Spec.Function.Guarded -> {
             +"GuardedLayer(cases=["
@@ -168,6 +201,11 @@ object PyTorchWriter {
             instanceSignature: InstanceSignature,
             typeSignature: TypeSignature
     ) = "${(instanceSignature + typeSignature.map { it.toPython() }).joinToString("_")}_net"
+
+    private fun getPolyNetName(
+            instanceSignature: InstanceSignature,
+            instancePosition: Int
+    ) = "${instanceSignature.joinToString("_")}_${instancePosition}_polynet"
 
     private fun RawType.toPython(): String = when (this) {
         is RawType.Literal -> name

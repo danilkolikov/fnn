@@ -22,7 +22,7 @@ sealed class Type : Expression, Implication<Type>, Replaceable<Type> {
 
     override fun replaceLiterals(map: Map<TypeName, Type>) = this // Type has no literals
 
-    abstract fun toRaw(): RawType
+    abstract fun toRaw(withVariables: Boolean = true): RawType
 
     data class Algebraic(val type: AlgebraicType) : Type() {
         override fun toString() = type.name
@@ -33,7 +33,7 @@ sealed class Type : Expression, Implication<Type>, Replaceable<Type> {
 
         override fun replace(map: Map<String, Type>) = this // Don't replace literals
 
-        override fun toRaw() = RawType.Literal(type.name)
+        override fun toRaw(withVariables: Boolean) = RawType.Literal(type.name)
     }
 
     data class Variable(val name: TypeVariableName) : Type() {
@@ -45,7 +45,7 @@ sealed class Type : Expression, Implication<Type>, Replaceable<Type> {
 
         override fun replace(map: Map<String, Type>) = map[name] ?: this
 
-        override fun toRaw() = RawType.Variable(name)
+        override fun toRaw(withVariables: Boolean) = if (withVariables) RawType.Variable(name) else RawType.Literal(name)
     }
 
     data class Function(val from: Type, val to: Type) : Type() {
@@ -60,6 +60,6 @@ sealed class Type : Expression, Implication<Type>, Replaceable<Type> {
                 to.replace(map)
         )
 
-        override fun toRaw() = RawType.Function(from.toRaw(), to.toRaw())
+        override fun toRaw(withVariables: Boolean) = RawType.Function(from.toRaw(withVariables), to.toRaw(withVariables))
     }
 }

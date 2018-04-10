@@ -3,7 +3,6 @@ package thesis.preprocess.types
 import thesis.preprocess.Processor
 import thesis.preprocess.expressions.LambdaName
 import thesis.preprocess.expressions.TypeName
-import thesis.preprocess.expressions.algebraic.term.AlgebraicEquation
 import thesis.preprocess.expressions.algebraic.type.AlgebraicType
 import thesis.preprocess.expressions.lambda.LambdaWithPatterns
 import thesis.preprocess.expressions.lambda.typed.TypedLambda
@@ -42,14 +41,14 @@ class LambdaInferenceProcessor(
 
         data.forEach { (name, expressions) ->
 
-            val rawExpectedType = typeDeclarations[name]?.type?.toRaw()
+            val rawExpectedType = typeDeclarations[name]?.type?.toRaw(withVariables = false)
 
             val typed = expressions.map { it.inferTypes(scope, algebraicTypes) }
             val types = (rawExpectedType?.let { listOf(it) } ?: emptyList()) + typed.map { it.first }
-            val solution = unifyTypes(types, algebraicTypes)
+            val solution = types.unifyTypes(algebraicTypes)
             val finalSubstitution = typed
-                    .fold(emptyMap<String, RawType>(), { s, a -> s.compose(a.third)})
-                    .compose(solution)
+                    .fold(emptyMap<String, RawType>(), { s, a -> s.compose(a.third, algebraicTypes) })
+                    .compose(solution, algebraicTypes)
             val rawExpressionType = types.first()
                     .replaceLiterals(finalSubstitution)
             val expressionType = rawExpressionType
@@ -95,8 +94,8 @@ class LambdaInferenceProcessor(
         val inferredLambda = preInferredLambda.first
 
         val subst = preInferredPatterns
-                .fold(emptyMap<String, RawType>(), { s, a -> s.compose(a.second)})
-                .compose(preInferredLambda.second)
+                .fold(emptyMap<String, RawType>(), { s, a -> s.compose(a.second, algebraicTypes) })
+                .compose(preInferredLambda.second, algebraicTypes)
 
         val expressionType = preInferredPatterns.foldRight(
                 preInferredLambda.first.type.type,
@@ -127,7 +126,7 @@ class LambdaInferenceProcessor(
             val newType = RawType.Literal(nameGenerator.next(TYPE_PREFIX))
             val inferredArgs = arguments.map { it.inferTypes(scope, variables, algebraicTypes) }
 
-            val subst = inferredArgs.fold(emptyMap<String, RawType>(), { s, arg -> s.compose(arg.second)})
+            val subst = inferredArgs.fold(emptyMap<String, RawType>(), { s, arg -> s.compose(arg.second, algebraicTypes) })
             val args = inferredArgs.map { it.first }
             val gotType = args.foldRight<TypedPattern<RawType>, RawType>(
                     newType,
@@ -139,7 +138,7 @@ class LambdaInferenceProcessor(
                     name,
                     args,
                     newType.bindVariables()
-            ) to subst.compose(unified)
+            ) to subst.compose(unified, algebraicTypes)
         }
     }
 
@@ -164,7 +163,10 @@ class LambdaInferenceProcessor(
             expression to emptyMap()
         }
         is UntypedLambda.Trainable -> {
-            val type = RawType.Literal(nameGenerator.next(TRAIN_PREFIX))
+            // Trainable should always be a function
+            val fromType = RawType.Literal(nameGenerator.next(TRAIN_PREFIX))
+            val toType = RawType.Literal(nameGenerator.next(TRAIN_PREFIX))
+            val type = RawType.Function(fromType, toType)
             val expression = TypedLambda.Trainable(this, type.bindVariables())
             expression to emptyMap()
         }
@@ -177,7 +179,7 @@ class LambdaInferenceProcessor(
                     got.type,
                     algebraicTypes
             )
-            inferred.replaceLiterals(solution) to subst.compose(solution)
+            inferred.replaceLiterals(solution) to subst.compose(solution, algebraicTypes)
         }
         is UntypedLambda.Abstraction -> {
             val newVariables = (variables + arguments.map {
@@ -211,21 +213,21 @@ class LambdaInferenceProcessor(
                 )
                 newScope[it.name] = bound.type
                 newBindings.add(newBinding)
-                subst = subst.compose(bindSubst)
+                subst = subst.compose(bindSubst, algebraicTypes)
             }
             val (inferred, exprSubst) = expression.inferType(newScope, variables, algebraicTypes, definedTypes)
             TypedLambda.LetAbstraction(
                     newBindings,
                     inferred,
                     inferred.type
-            ) to subst.compose(exprSubst)
+            ) to subst.compose(exprSubst, algebraicTypes)
         }
         is UntypedLambda.Application -> {
             val (function, funcSubst) = function.inferType(scope, variables, algebraicTypes, definedTypes)
             val inferredArguments = arguments.map { it.inferType(scope, variables, algebraicTypes, definedTypes) }
             val resultType = RawType.Literal(nameGenerator.next(TYPE_PREFIX))
 
-            val subst = inferredArguments.fold(funcSubst, { s, arg -> s.compose(arg.second)})
+            val subst = inferredArguments.fold(funcSubst, { s, arg -> s.compose(arg.second, algebraicTypes) })
             val arguments = inferredArguments.map { it.first }
             val expected = arguments.foldRight<TypedLambda<RawType>, RawType>(
                     resultType,
@@ -240,32 +242,9 @@ class LambdaInferenceProcessor(
                     function,
                     arguments,
                     resultType.bindVariables()
-            ).replaceLiterals(solution) to subst.compose(solution)
+            ).replaceLiterals(solution) to subst.compose(solution, algebraicTypes)
         }
     }
-
-    private fun unifyTypes(
-            first: RawType,
-            second: RawType,
-            definedTypes: Set<String>
-    ): Map<TypeName, RawType> = unifyTypes(listOf(first, second), definedTypes)
-
-    private fun unifyTypes(types: List<RawType>, definedTypes: Set<String>): Map<TypeName, RawType> {
-        if (types.size < 2) {
-            return emptyMap()
-        }
-        val terms = types.map { it.toAlgebraicTerm() }
-        val first = terms.first()
-        val rest = terms.drop(1)
-        return rest.map { AlgebraicEquation(first, it) }
-                .inferTypes(definedTypes)
-                .mapValues { (_, v) -> RawType.fromAlgebraicTerm(v) }
-    }
-
-    private fun Map<String, RawType>.compose(
-            other: Map<String, RawType>
-    ): Map<String, RawType> = other + mapValues { (_, value) -> value.replaceLiterals(other)}
-
 
     private fun TypedLambda<RawType>.bindLiterals(definedTypes: Set<String>) = modifyType { it.bindLiterals(definedTypes) }
 

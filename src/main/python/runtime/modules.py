@@ -148,7 +148,6 @@ class GuardedLayer(Module):
             presence = torch.prod(patterns, 1).unsqueeze(1)
             result = self.net(data_bag)
 
-            # print("case", patterns, "pres", presence, "res", result, "mult", presence*result)
             return presence * result
 
 
@@ -188,7 +187,7 @@ class ApplicationLayer(Module):
             called.append(operand)
 
         net = called[0]
-        args = called[1:]
+        args = called
 
         data = []
         nets = []
@@ -199,5 +198,4 @@ class ApplicationLayer(Module):
                 nets.append(args[i])
         this_args = DataBag(torch.cat(data, 1), nets)
         net_args = data_bag.next_scope(net.pointer, this_args)
-
         return net(net_args)

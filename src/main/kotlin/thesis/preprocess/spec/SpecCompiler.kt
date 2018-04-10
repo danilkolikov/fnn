@@ -44,7 +44,8 @@ class SpecCompiler : Processor<ParametrisedSpecs, Specs> {
         return Specs(
                 data.typeSpecs,
                 instances,
-                parametrisedInstances
+                parametrisedInstances,
+                data.trainable
         )
     }
 
@@ -71,23 +72,33 @@ class SpecCompiler : Processor<ParametrisedSpecs, Specs> {
                     info.start
             )
             is ParametrisedSpec.Function.Trainable -> {
-                var fromSize = 0
-                type.getArguments().forEach {
-                    if (it is Type.Algebraic) {
-                        val spec = typeSpecs[it.type.name] ?: throw UnknownTypeError(it.type.name)
-                        fromSize += spec.structure.size
+                if (type.getArguments().size != trainableSpec.argumentTypes.size) {
+                    // Extra parameters appeared - it was instantiated by function type
+                    throw UnsupportedTrainableType(type)
+                }
+                val instantiateBy = mutableListOf<TypeName>()
+                trainableSpec.argumentTypes.zip(type.getArguments()).forEach { (type, arg) ->
+                    if (arg is Type.Algebraic) {
+                        if (type == null) {
+                            // Variable was instantiated
+                            instantiateBy.add(arg.type.name)
+                        }
                     } else {
-                        throw UnsupportedTrainableType(it)
+                        throw UnsupportedTrainableType(arg)
                     }
                 }
-                val result = (type.getResultType() as? Type.Algebraic
-                        ?: throw UnsupportedTrainableType(type.getResultType())).type
-                val resultSpec = typeSpecs[result.name] ?: throw UnknownTypeError(result.name)
+                val resultType = type.getResultType() as? Type.Algebraic
+                        ?: throw UnsupportedTrainableType(type.getResultType())
+                val resultTypeName = if (trainableSpec.resultType == null) resultType.type.name else null
+
                 Spec.Function.Trainable(
+                        instanceSignature,
+                        instancePosition,
+                        trainableSpec,
                         type,
-                        fromSize,
-                        result.name,
-                        resultSpec
+                        dataPointer,
+                        instantiateBy,
+                        resultTypeName
                 )
             }
             is ParametrisedSpec.Function.Anonymous -> {

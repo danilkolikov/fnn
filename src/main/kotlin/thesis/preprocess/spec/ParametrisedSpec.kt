@@ -58,10 +58,16 @@ sealed class ParametrisedSpec : Typed<Parametrised<Type>> {
     sealed class Function : ParametrisedSpec() {
 
         data class Trainable(
+                val instanceSignature: InstanceSignature,
+                val instancePosition: Int,
+                val trainableSpec: ParametrisedTrainableSpec,
                 override val instancePath: List<LambdaName>,
                 override val type: Parametrised<Type>
         ) : Function() {
             override fun instantiate(typeParams: Map<TypeVariableName, Type>, instances: Instances<ParametrisedSpec>) = Trainable(
+                    instanceSignature,
+                    instancePosition,
+                    trainableSpec,
                     instancePath,
                     type.instantiate(typeParams)
             )

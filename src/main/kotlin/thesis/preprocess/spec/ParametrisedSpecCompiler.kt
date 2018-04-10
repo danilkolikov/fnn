@@ -7,7 +7,7 @@ import thesis.preprocess.expressions.lambda.typed.TypedLambda
 import thesis.preprocess.expressions.type.Type
 import thesis.preprocess.results.*
 import thesis.preprocess.types.UnknownExpressionError
-import thesis.utils.NameGenerator
+import thesis.preprocess.types.UnsupportedTrainableType
 
 /**
  * Compiles Lambda expressions to specs with parameters
@@ -19,23 +19,22 @@ class ParametrisedSpecCompiler : Processor<InferredExpressions, ParametrisedSpec
     override fun process(data: InferredExpressions): ParametrisedSpecs {
         val typeSpecs = TypeSpecCompiler().process(data.typeDefinitions)
 
-        val instances = LambdaDefinitionCompiler(typeSpecs)
+        val (instances, trainable) = LambdaDefinitionCompiler(typeSpecs)
                 .process(data.lambdaDefinitions)
-        return ParametrisedSpecs(typeSpecs, instances)
+        return ParametrisedSpecs(typeSpecs, instances, trainable)
     }
 
     private class LambdaDefinitionCompiler(
             private val typeDefinitions: LinkedHashMap<TypeName, TypeSpec>
-    ) : Processor<LinkedHashMap<LambdaName, InferredLambda>, Instances<ParametrisedSpec>> {
-
-        private val nameGenerator = NameGenerator("")
+    ) : Processor<LinkedHashMap<LambdaName, InferredLambda>,
+            Pair<Instances<ParametrisedSpec>, LinkedHashMap<InstanceSignature, List<ParametrisedTrainableSpec>>>> {
 
         override fun process(
                 data: LinkedHashMap<LambdaName, InferredLambda>
-        ): Instances<ParametrisedSpec> {
+        ): Pair<Instances<ParametrisedSpec>, LinkedHashMap<InstanceSignature, List<ParametrisedTrainableSpec>>> {
             val compiled = mutableMapOf<LambdaName, ParametrisedSpec>()
             val instances = Instances<ParametrisedSpec>()
-
+            val trainable = LinkedHashMap<InstanceSignature, MutableList<ParametrisedTrainableSpec>>()
             // Add constructors
             val definedTypes = mutableSetOf<TypeName>()
             typeDefinitions.forEach { _, typeInfo ->
@@ -83,7 +82,8 @@ class ParametrisedSpecCompiler : Processor<InferredExpressions, ParametrisedSpec
                             variables,
                             compiled,
                             listOf(name),
-                            instances
+                            instances,
+                            trainable
                     )
                     cases.add(ParametrisedSpec.Function.Guarded.Case(
                             patterns,
@@ -94,19 +94,42 @@ class ParametrisedSpecCompiler : Processor<InferredExpressions, ParametrisedSpec
                 instances.putIfAbsent(guarded.instancePath, emptyList(), guarded)
                 compiled[name] = guarded
             }
-            return instances
+            return instances to trainable.mapValuesTo(LinkedHashMap(), { (_, v) -> v.toList() })
         }
 
         private fun TypedLambda<Type>.compile(
                 variables: Map<LambdaName, ParametrisedSpec.Variable>,
                 compiled: Map<LambdaName, ParametrisedSpec>,
                 instancePath: List<LambdaName>,
-                instances: Instances<ParametrisedSpec>
+                instances: Instances<ParametrisedSpec>,
+                trainable: LinkedHashMap<InstanceSignature, MutableList<ParametrisedTrainableSpec>>
         ): ParametrisedSpec = when (this) {
-            is TypedLambda.Trainable -> ParametrisedSpec.Function.Trainable(
-                    instancePath,
-                    type
-            )
+            is TypedLambda.Trainable -> {
+                val argumentTypes = type.type.getArguments().map {
+                    when (it) {
+                        is Type.Algebraic -> it.type.name
+                        is Type.Variable -> null
+                        is Type.Function -> throw UnsupportedTrainableType(type.type)
+                    }
+                }
+                val resultType = type.type.getResultType()
+                val resultTypeName = when (resultType) {
+                    is Type.Algebraic -> resultType.type.name
+                    is Type.Variable -> null
+                    is Type.Function -> throw UnsupportedTrainableType(type.type)
+                }
+                trainable.computeIfAbsent(instancePath, { mutableListOf() })
+                val trainableSpecs = trainable[instancePath]!!
+                val spec = ParametrisedTrainableSpec(argumentTypes, resultTypeName)
+                trainableSpecs.add(spec)
+                ParametrisedSpec.Function.Trainable(
+                        instancePath,
+                        trainableSpecs.size - 1,
+                        spec,
+                        instancePath,
+                        type
+                )
+            }
             is TypedLambda.Literal -> {
                 val defined = compiled[name]?.let {
                     if (instanceTypeParams.isEmpty()) {
@@ -157,7 +180,7 @@ class ParametrisedSpecCompiler : Processor<InferredExpressions, ParametrisedSpec
                 }.toMap()
                 ParametrisedSpec.Function.Anonymous(
                         args,
-                        expression.compile(variables + vars, compiled, instancePath, instances),
+                        expression.compile(variables + vars, compiled, instancePath, instances, trainable),
                         instancePath,
                         type
                 )
@@ -171,12 +194,13 @@ class ParametrisedSpecCompiler : Processor<InferredExpressions, ParametrisedSpec
                             variables,
                             newCompiled,
                             instancePath + listOf(name),
-                            instances
+                            instances,
+                            trainable
                     )
                     newCompiled[it.name] = binding
                     bound.add(it.name)
                 }
-                val compiledExpr = expression.compile(variables, newCompiled, instancePath, instances)
+                val compiledExpr = expression.compile(variables, newCompiled, instancePath, instances, trainable)
                 ParametrisedSpec.LetAbstraction(
                         compiledExpr,
                         bound,
@@ -186,7 +210,7 @@ class ParametrisedSpecCompiler : Processor<InferredExpressions, ParametrisedSpec
             }
             is TypedLambda.Application -> {
                 val operands = (listOf(function) + this.arguments).map {
-                    it.compile(variables, compiled, instancePath, instances)
+                    it.compile(variables, compiled, instancePath, instances, trainable)
                 }
                 ParametrisedSpec.Application(
                         operands,

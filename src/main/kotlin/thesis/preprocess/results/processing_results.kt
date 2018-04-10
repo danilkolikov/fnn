@@ -18,6 +18,7 @@ import thesis.preprocess.expressions.type.Parametrised
 import thesis.preprocess.expressions.type.Type
 import thesis.preprocess.expressions.type.raw.RawType
 import thesis.preprocess.spec.ParametrisedSpec
+import thesis.preprocess.spec.ParametrisedTrainableSpec
 import thesis.preprocess.spec.Spec
 import thesis.preprocess.spec.TypeSpec
 
@@ -47,11 +48,13 @@ typealias TypeSignature = List<RawType>
 
 data class ParametrisedSpecs(
         val typeSpecs: LinkedHashMap<TypeName, TypeSpec>,
-        val instances: Instances<ParametrisedSpec>
+        val instances: Instances<ParametrisedSpec>,
+        val trainable: LinkedHashMap<InstanceSignature, List<ParametrisedTrainableSpec>>
 )
 
 data class Specs(
         val typeSpecs: LinkedHashMap<TypeName, TypeSpec>,
         val instances: Instances<Spec>,
-        val parametrisedInstances: Instances<ParametrisedSpec>
+        val parametrisedInstances: Instances<ParametrisedSpec>,
+        val trainable: LinkedHashMap<InstanceSignature, List<ParametrisedTrainableSpec>>
 )

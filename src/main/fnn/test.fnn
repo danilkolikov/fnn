@@ -2,18 +2,11 @@
 @type Foo = MkFoo Bar;
 @type Zap = MkZap Foo Foo Bar;
 
-@type fst = Bar -> Bar -> Bar -> Bar;
-fst Q y z = y;
-fst Z y z = T;
-fst T y z = z;
-
 @type Bool = False | True;
 
-@type if = Bool -> Bar -> Bar -> Bar;
 if True x y = x;
 if False x y = y;
 
-@type id = Bar -> Bar;
 id x = x;
 
 not True = False;
@@ -28,24 +21,23 @@ eq x z = False;
 @type foo = (Bool -> Bool) -> Bool -> Bool;
 foo x t = x t;
 
-@type idf = Bool -> Bool;
-idf x = x;
-
-@type ift = Bool -> (Bool -> Bool) -> (Bool -> Bool) -> (Bool -> Bool);
-ift True a b = a;
-ift False a b = b;
-
-@type N = One | Two | Three | Four;
-
-test False False = One;
-test False True = Two;
-test True False = Three;
-test True True = Four;
+--@type N = One | Two | Three | Four;
+--
+--test False False = One;
+--test False True = Two;
+--test True False = Three;
+--test True True = Four;
 
 @type BoolBar = BB Bool Bar;
 
-@type main = Bool -> Bool -> Bar;
-main x y = if (@learn x y) Z T;
+@type test = a -> b;
+test = @learn;
 
 @type and = Bool -> Bool -> Bool;
-and = \x y. (@learn : Bar -> Bool) ((@learn : Bool -> Bool -> Bar) x y);
+and = \x y. if x (test y) (test y);
+
+@type fst = a -> b -> c -> a;
+fst = @learn;
+
+@type main = Bar -> Bar -> Bool -> Bar;
+main x y z = fst x y z;

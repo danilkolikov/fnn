@@ -20,7 +20,15 @@ class UndirectedGraph<T>(
     fun getConnectedComponents(startFrom: Set<T>): Map<T, T> {
         val visited = mutableSetOf<T>()
         val result = mutableMapOf<T, T>()
+        // Mark the graph starting from required vertices
         for (vertex in startFrom) {
+            if (visited.contains(vertex)) {
+                continue
+            }
+            dfs(vertex, visited).forEach { result[it] = vertex }
+        }
+        // Mark the rest of vertices
+        for (vertex in edges.keys) {
             if (visited.contains(vertex)) {
                 continue
             }

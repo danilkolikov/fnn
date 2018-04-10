@@ -8,13 +8,13 @@ program : (expression SEMICOLON)* EOF;
 
 expression : typeDefinition
     | lambdaTypeDeclaration
-    | lambdaDefinition ;
+    | lambdaDefinition;
 
 typeDefinition : TYPE_KEYWORD typeLiteral EQUALS typeExpression;
 
 typeExpression : typeSumOperand (TYPE_PLUS typeSumOperand)*;
 
-``typeSumOperand : typeLiteral+;
+typeSumOperand : typeLiteral+;
 
 typeLiteral : name=TYPE_NAME;
 
@@ -73,6 +73,9 @@ DOT : '.';
 COLON : ':';
 ARROW : '->';
 SEMICOLON : ';';
+
+// Comments
+COMMENT : '--' ~('\r' | '\n')* -> skip;
 
 fragment UPPER_CASE : [A-Z];
 fragment LOWER_CASE : [a-z];

@@ -55,10 +55,13 @@ sealed class Spec : Typed<Type> {
         abstract val closurePointer: DataPointer
 
         data class Trainable(
+                val instanceSignature: InstanceSignature,
+                val instancePosition: Int,
+                val trainableSpec: ParametrisedTrainableSpec,
                 override val type: Type,
-                val fromTypeSize: Int,
-                val toTypeName: TypeName,
-                val toType: TypeSpec
+                val dataPointer: DataPointer,
+                val instantiatedArgs: List<TypeName>,
+                val instantiatedResult: TypeName?
         ) : Function() {
             override val closurePointer = DataPointer.START // Assuming trainable to be defined in global scope
         }
