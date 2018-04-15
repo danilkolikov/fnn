@@ -43,13 +43,30 @@ class LambdaInferenceProcessor(
 
             val rawExpectedType = typeDeclarations[name]?.type?.toRaw(withVariables = false)
 
-            val typed = expressions.map { it.inferTypes(scope, algebraicTypes) }
-            val types = (rawExpectedType?.let { listOf(it) } ?: emptyList()) + typed.map { it.first }
+            // Assume every function to be recursive
+            val recType = RawType.Literal(nameGenerator.next(name))
+            val variables = mapOf(name to Parametrised(emptyList(), recType, emptyMap()))
+            val varTypes = setOf(recType.name)
+
+            val typed = expressions.map { it.inferTypes(scope, variables, varTypes, algebraicTypes) }
+
+            // If there was recursive call in any of cases, the definition should be recursive
+            val varScope = mergeSubstitutions(typed.map { it.third }, algebraicTypes)
+            val isRecursive = !varScope.isEmpty()
+            val recTypeRenamed = recType.replaceLiterals(varScope)
+
+            // Unify types of all cases
+            // If there was a type declaration, add it to the list for unification
+            // If there was a recursive call, add it's type to the list
+            val types = typed.map { it.first } +
+                    (rawExpectedType?.let { listOf(it) } ?: emptyList()) +
+                    (if (isRecursive) listOf(recTypeRenamed) else emptyList())
+
             val solution = types.unifyTypes(algebraicTypes)
 
             val rawExpressionType = types.first().replaceLiterals(solution)
             val expressionType = rawExpressionType.toType(typeScope)
-            val variables = expressionType.getVariables().toList()
+            val typeVariables = expressionType.getVariables().toList()
 
             val cases = typed.map { (_, case) ->
                 val boundPatterns = case.patterns.map {
@@ -62,17 +79,18 @@ class LambdaInferenceProcessor(
             }
 
             scope[name] = Parametrised(
-                    variables,
+                    typeVariables,
                     rawExpressionType.bindLiterals(algebraicTypes),
-                    variables.map { it to RawType.Variable(it) }.toMap()
+                    typeVariables.map { it to RawType.Variable(it) }.toMap()
             )
             result[name] = InferredLambda(
                     Parametrised(
-                            variables,
+                            typeVariables,
                             expressionType,
-                            variables.map { it to Type.Variable(it) }.toMap()
+                            typeVariables.map { it to Type.Variable(it) }.toMap()
                     ),
-                    cases
+                    cases,
+                    isRecursive
             )
         }
         return result
@@ -80,8 +98,13 @@ class LambdaInferenceProcessor(
 
     private fun LambdaWithPatterns<UntypedLambda, UntypedPattern>.inferTypes(
             scope: Map<String, Parametrised<RawType>>,
+            variables: Map<LambdaName, Parametrised<RawType>>,
+            variableTypes: Set<String>,
             algebraicTypes: Set<String>
-    ): Pair<RawType, LambdaWithPatterns<TypedLambda<RawType>, TypedPattern<RawType>>> {
+    ): Triple<
+            RawType,
+            LambdaWithPatterns<TypedLambda<RawType>, TypedPattern<RawType>>,
+            Map<LambdaName, RawType>> {
         val patternsVariables = patterns.flatMap { it.getVariables() }
         val varTypes = patternsVariables.map { it to nameGenerator.next(it) }
         val typedVariables = varTypes.map { (name, type) ->
@@ -92,16 +115,20 @@ class LambdaInferenceProcessor(
             )
             name to parametrised
         }
-        val variableTypes = varTypes.map { it.second }.toSet()
-        val variables = typedVariables.toMap().toMutableMap()
+        val newVariableTypes = varTypes.map { it.second }.toSet()
+        val newVariables = typedVariables.toMap().toMutableMap()
         val definedTypes = algebraicTypes + patternsVariables.toSet()
 
         // Infer types for patterns and lambda
         val preInferredPatterns = patterns.map {
-            it.inferTypes(scope, variables, variableTypes, definedTypes)
+            it.inferTypes(scope, newVariables, newVariableTypes, definedTypes)
         }
         val (preInferredLambda, varScope) = lambda.inferType(
-                scope, variables, variableTypes, algebraicTypes, definedTypes
+                scope,
+                variables + newVariables,
+                variableTypes + newVariableTypes,
+                algebraicTypes,
+                definedTypes
         )
 
         // Replace variables in patterns according to varScope
@@ -113,7 +140,12 @@ class LambdaInferenceProcessor(
                 inferredLambda.type.type,
                 { arg, res -> RawType.Function(arg.type.type, res) }
         )
-        return expressionType to LambdaWithPatterns(inferredPatterns, inferredLambda)
+        val newScope = varScope.filterKeys { variableTypes.contains(it) }
+        return Triple(
+                expressionType,
+                LambdaWithPatterns(inferredPatterns, inferredLambda),
+                newScope
+        )
     }
 
     private fun UntypedPattern.inferTypes(
@@ -222,7 +254,7 @@ class LambdaInferenceProcessor(
             val newArguments = arguments.map {
                 it.inferType(
                         scope, newVariables, variableTypes, algebraicTypes, definedTypes
-                ).first as TypedLambda.Literal
+                ).first
             }
             val newVariableTypes = variableTypes + newVariableNames.map { it.second }.toSet()
             // We expect types of arguments to be literals
@@ -232,7 +264,7 @@ class LambdaInferenceProcessor(
                     scope, newVariables, newVariableTypes, algebraicTypes, newDefined
             )
             // Replace types of variables according to varScope
-            val replacedArguments = newArguments.map { it.replaceLiterals(varScope) }
+            val replacedArguments = newArguments.map { it.replaceLiterals(varScope) as TypedLambda.Literal }
             val term = replacedArguments
                     .foldRight(result.type.type, { arg, res ->
                         RawType.Function(arg.type.type, res)
@@ -246,7 +278,7 @@ class LambdaInferenceProcessor(
             // New variable scope should contain information relevant to variables that were bound before
             val newVarScope = varScope.filterKeys { variableTypes.contains(it) }
             TypedLambda.Abstraction(
-                    newArguments,
+                    replacedArguments,
                     result,
                     parametrised
             ) to newVarScope
@@ -281,6 +313,36 @@ class LambdaInferenceProcessor(
                     inferred.type
             ) to newVarScope
         }
+        is UntypedLambda.RecAbstraction -> {
+            val argumentType = RawType.Literal(nameGenerator.next(argument.name))
+            val parametrised = Parametrised(
+                    emptyList(),
+                    argumentType,
+                    emptyMap()
+            )
+            val newVariables = variables + mapOf(argument.name to parametrised)
+            val newVarTypes = variableTypes + setOf(argumentType.name)
+            val inferredArgument = argument.inferType(
+                    scope, newVariables, newVarTypes, algebraicTypes, definedTypes
+            ).first
+            val (inferredExpr, varScope) = expression.inferType(
+                    scope, newVariables, newVarTypes, algebraicTypes, definedTypes
+            )
+            val newParametrised = inferredArgument.replaceLiterals(varScope)
+            // Check that type of argument is equal to the type of expression
+            val solution = unifyTypes(
+                    newParametrised.type.type,
+                    inferredExpr.type.type,
+                    algebraicTypes
+            )
+            val replacedArgument = newParametrised.replaceLiterals(solution) as TypedLambda.Literal
+            val newVarScope = varScope.filterKeys { variables.containsKey(it) }
+            TypedLambda.RecAbstraction(
+                    replacedArgument,
+                    inferredExpr,
+                    inferredExpr.type
+            ) to newVarScope
+        }
         is UntypedLambda.Application -> {
             val (function, funcVarScope) = function.inferType(
                     scope, variables, variableTypes, algebraicTypes, definedTypes
@@ -303,7 +365,7 @@ class LambdaInferenceProcessor(
 
             // Any operand may bind variables from the scope in a different way
             // So we should unify them to avoid collisions
-            val substitutions = listOf(funcVarScope) + inferredArguments.map { it.second }
+            val substitutions = listOf(solution, funcVarScope) + inferredArguments.map { it.second }
             val merged = mergeSubstitutions(substitutions, algebraicTypes)
             val newVarScope = merged.filterKeys { variableTypes.contains(it) }
                     .mapValues { (_, v) -> v.replaceLiterals(solution) }

@@ -111,6 +111,43 @@ class AnonymousNetLayer(Module):
         return self.net(*inputs)
 
 
+class RecursiveLayer(Module):
+    """
+    Recursive network. Provides reference on itself for recursive calls.
+    """
+
+    def __init__(self, net, pointer):
+        super().__init__()
+        self.net = net
+        self.pointer = pointer
+        self.add_module('inner', net)
+
+    def forward(self, data_bag):
+        limited = LimitedRecursiveLayer(self.net)
+        this_args = DataBag(torch.Tensor(0), [limited])
+        net_args = data_bag.next_scope(self.pointer, this_args)
+        return self.net(net_args)
+
+
+class LimitedRecursiveLayer(Module):
+    """
+    Recursive layer with limitation of the depth of recursion
+    """
+
+    DEPTH = 10
+
+    def __init__(self, net):
+        super().__init__()
+        self.net = net
+        self.depth = 0
+
+    def forward(self, *inputs):
+        self.depth += 1
+        if self.depth > LimitedRecursiveLayer.DEPTH:
+            return torch.Tensor(0)
+        return self.net(*inputs)
+
+
 class GuardedLayer(Module):
     """
     Net with many possible ways of execution, every possibility is chosen according on

@@ -10,3 +10,14 @@ swap = @learn;
 
 @type main = Pair (Either Bool Bool) (Maybe Bool) -> Pair (Maybe Bool) (Either Bool Bool);
 main = swap;
+
+test False = True;
+test True = test False;
+
+if True x y = x;
+if False x y = y;
+
+not True = False;
+not False = True;
+
+test2 = @rec f @in \x. not (f (if x False True));

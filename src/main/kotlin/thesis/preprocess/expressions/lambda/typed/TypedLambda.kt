@@ -86,6 +86,18 @@ sealed class TypedLambda<T : Implication<T>> : Lambda, Typed<Parametrised<T>> {
         }
     }
 
+    data class RecAbstraction<T: Implication<T>>(
+            override val argument: TypedLambda.Literal<T>,
+            override val expression: TypedLambda<T>,
+            override val type: Parametrised<T>
+    ) : TypedLambda<T>(), Lambda.RecAbstraction<TypedLambda<T>> {
+        override fun <S : Implication<S>> modifyType(action: (T) -> S) = TypedLambda.RecAbstraction(
+                argument.modifyType(action),
+                expression.modifyType(action),
+                type.modifyType(action)
+        )
+    }
+
     data class Application<T : Implication<T>>(
             override val function: TypedLambda<T>,
             override val arguments: List<TypedLambda<T>>,

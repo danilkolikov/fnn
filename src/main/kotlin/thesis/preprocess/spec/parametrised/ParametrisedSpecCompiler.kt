@@ -57,9 +57,16 @@ class ParametrisedSpecCompiler : Processor<InferredExpressions, ParametrisedSpec
         data.lambdaDefinitions.forEach { name, lambda ->
             val cases = mutableListOf<ParametrisedSpec.Function.Guarded.Case>()
 
+            val variables = if (lambda.isRecursive) mapOf(
+                    name to ParametrisedSpec.Variable(
+                            name,
+                            emptyList(),
+                            lambda.type
+                    )
+            ) else emptyMap()
             lambda.expressions.forEach { (patterns, lambda) ->
 
-                val variables = patterns.flatMap { it.getTypedVariables().toList() }
+                val newVariables = variables + patterns.flatMap { it.getTypedVariables().toList() }
                         .map {
                             it.first to ParametrisedSpec.Variable(
                                     it.first,
@@ -70,7 +77,7 @@ class ParametrisedSpecCompiler : Processor<InferredExpressions, ParametrisedSpec
                         .toMap()
 
                 val case = lambda.compile(
-                        variables,
+                        newVariables,
                         compiled,
                         listOf(name),
                         instances,
@@ -82,7 +89,13 @@ class ParametrisedSpecCompiler : Processor<InferredExpressions, ParametrisedSpec
                 ))
             }
             val guarded = ParametrisedSpec.Function.Guarded(name, cases, lambda.type)
-            instances.putIfAbsent(guarded.instancePath, emptyList(), guarded)
+            val result = if (lambda.isRecursive) ParametrisedSpec.Function.Recursive(
+                    name,
+                    guarded,
+                    emptyList(),
+                    lambda.type
+            ) else guarded
+            instances.putIfAbsent(guarded.instancePath, emptyList(), result)
             compiled[name] = guarded
         }
 
@@ -208,6 +221,21 @@ class ParametrisedSpecCompiler : Processor<InferredExpressions, ParametrisedSpec
                     bound,
                     instancePath,
                     compiledExpr.type
+            )
+        }
+        is TypedLambda.RecAbstraction -> {
+            val vars = variables + mapOf(argument.name to ParametrisedSpec.Variable(
+                    argument.name,
+                    instancePath,
+                    type
+            ))
+            ParametrisedSpec.Function.Recursive(
+                    argument.name,
+                    expression.compile(
+                            vars, compiled, instancePath, instances, trainable
+                    ),
+                    instancePath,
+                    type
             )
         }
         is TypedLambda.Application -> {

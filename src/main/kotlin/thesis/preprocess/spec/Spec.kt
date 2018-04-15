@@ -106,6 +106,15 @@ sealed class Spec : Typed<Type> {
 
             override fun toString() = "($body)"
         }
+
+        data class Recursive(
+                val name: LambdaName,
+                val body: Spec,
+                override val type: Type,
+                override val closurePointer: DataPointer
+        ) : Function() {
+            override fun toString() = "(@rec $name @in $body)"
+        }
     }
 
     data class Application(

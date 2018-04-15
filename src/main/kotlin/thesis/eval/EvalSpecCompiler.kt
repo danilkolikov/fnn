@@ -27,7 +27,7 @@ class EvalSpecCompiler : Processor<Specs, Instances<EvalSpec>> {
         is Spec.Variable.Function -> EvalSpec.Variable.Function(this)
         is Spec.Variable.External -> EvalSpec.Variable.External(
                 this,
-                processed.get(signature, typeSignature) ?: throw UnknownExpressionError(
+                processed[signature, typeSignature] ?: throw UnknownExpressionError(
                         signature.toString()
                 )
         )
@@ -39,6 +39,10 @@ class EvalSpecCompiler : Processor<Specs, Instances<EvalSpec>> {
                 cases.map { EvalSpec.Function.Guarded.Case(it, it.body.toEvalSpec(processed)) }
         )
         is Spec.Function.Anonymous -> EvalSpec.Function.Anonymous(
+                this,
+                body.toEvalSpec(processed)
+        )
+        is Spec.Function.Recursive -> EvalSpec.Function.Recursive(
                 this,
                 body.toEvalSpec(processed)
         )

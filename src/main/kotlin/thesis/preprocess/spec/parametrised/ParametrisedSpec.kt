@@ -5,6 +5,7 @@ import thesis.preprocess.expressions.TypeName
 import thesis.preprocess.expressions.TypeVariableName
 import thesis.preprocess.expressions.algebraic.type.AlgebraicType
 import thesis.preprocess.expressions.lambda.Typed
+import thesis.preprocess.expressions.lambda.typed.TypedLambda
 import thesis.preprocess.expressions.type.Parametrised
 import thesis.preprocess.expressions.type.Type
 import thesis.preprocess.expressions.type.instantiate
@@ -189,6 +190,20 @@ sealed class ParametrisedSpec : Typed<Parametrised<Type>> {
             )
 
             override fun toString() = "($body)"
+        }
+
+        data class Recursive(
+                val argument: LambdaName,
+                val body: ParametrisedSpec,
+                override val instancePath: List<LambdaName>,
+                override val type: Parametrised<Type>
+        ) : Function() {
+            override fun instantiate(typeParams: Map<TypeVariableName, Type>, instances: Instances<ParametrisedSpec>) = Recursive(
+                    argument,
+                    body.instantiate(typeParams, instances),
+                    instancePath,
+                    type.instantiate(typeParams)
+            )
         }
     }
 

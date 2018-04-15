@@ -120,7 +120,7 @@ class SpecCompiler : Processor<ParametrisedSpecs, Specs> {
                 val newVariables = this.arguments.map { (name, parametrised) ->
                     val argType = parametrised.type
                     when (argType) {
-                        is Type.Variable -> throw IllegalStateException("Unexpected variable $name")
+                        is Type.Variable -> throw IllegalStateException("Unexpected variable ${argType.name}")
                         is Type.Application -> {
                             // It is object now, as we don't support mixed data types
                             val start = thisOffset
@@ -149,6 +149,24 @@ class SpecCompiler : Processor<ParametrisedSpecs, Specs> {
                                 typeSpecs,
                                 DataPointer(thisOffset, functionsCounter)
                         ),
+                        dataPointer
+                )
+            }
+            is ParametrisedSpec.Function.Recursive -> {
+                var functionsCount = dataPointer.functionsCount
+                val newVariables = variables + mapOf(
+                        argument to Spec.Variable.Function(argument, typeInstance, functionsCount++)
+                )
+                Spec.Function.Recursive(
+                        argument,
+                        body.instantiate(
+                                newVariables,
+                                instances,
+                                parametrisedInstances,
+                                typeSpecs,
+                                DataPointer(dataPointer.dataOffset, functionsCount)
+                        ),
+                        typeInstance,
                         dataPointer
                 )
             }
@@ -272,7 +290,7 @@ class SpecCompiler : Processor<ParametrisedSpecs, Specs> {
                         }
                     }
                     val compiledCase = case.body.instantiate(
-                            variablesMap,
+                            variables + variablesMap,
                             instances,
                             parametrisedInstances,
                             typeSpecs,

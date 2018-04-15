@@ -31,6 +31,11 @@ interface Lambda : Expression {
         }
     }
 
+    interface RecAbstraction<out E: Lambda> : Lambda {
+        val argument: Lambda.Literal
+        val expression: E
+    }
+
     interface Application<out E: Lambda> : Lambda {
         val function: E
         val arguments: List<E>

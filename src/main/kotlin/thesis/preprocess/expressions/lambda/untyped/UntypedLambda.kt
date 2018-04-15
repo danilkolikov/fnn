@@ -65,6 +65,15 @@ sealed class UntypedLambda : Lambda {
         }
     }
 
+    data class RecAbstraction(
+            override val argument: UntypedLambda.Literal,
+            override val expression: UntypedLambda
+    ) : UntypedLambda(), Lambda.RecAbstraction<UntypedLambda> {
+        override fun getBoundVariables() = setOf(argument.name) + expression.getBoundVariables()
+
+        override fun toString() = "(@rec ${argument.name} @in $expression)"
+    }
+
     data class Application(
             override val function: UntypedLambda,
             override val arguments: List<UntypedLambda>

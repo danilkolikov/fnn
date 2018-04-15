@@ -150,6 +150,17 @@ sealed class EvalSpec {
         ) : Function() {
             override fun eval(arguments: DataBag) = body.eval(arguments)
         }
+
+        class Recursive(
+                override val spec: Spec.Function.Recursive,
+                val body: EvalSpec
+        ) : Function() {
+            override fun eval(arguments: DataBag): EvalResult {
+                val newArgs = DataBag(emptyList(), listOf(body))
+                val raw = arguments.getArgumentsBefore(spec.closurePointer).append(newArgs)
+                return body.eval(raw)
+            }
+        }
     }
 
     class Application(

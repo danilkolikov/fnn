@@ -7,7 +7,6 @@ package thesis.preprocess.ast
 
 import thesis.LambdaProgramParser
 import thesis.preprocess.expressions.algebraic.type.RawAlgebraicType
-import thesis.preprocess.expressions.algebraic.type.RawAlgebraicType.Structure
 import thesis.preprocess.expressions.lambda.untyped.UntypedLambda
 import thesis.preprocess.expressions.lambda.untyped.UntypedPattern
 import thesis.preprocess.expressions.type.Parametrised
@@ -112,6 +111,14 @@ fun LambdaProgramParser.LambdaApplicationOperandContext.toAst(): UntypedLambda {
         val bindings = letBindings().toAst()
         return UntypedLambda.LetAbstraction(
                 bindings,
+                body
+        )
+    }
+    if (REC_KEYWORD() != null && name != null && body != null) {
+        val body = body.toAst()
+        val name = name.text
+        return UntypedLambda.RecAbstraction(
+                UntypedLambda.Literal(name),
                 body
         )
     }

@@ -5,6 +5,7 @@ import thesis.preprocess.results.InstanceSignature
 import thesis.preprocess.results.Specs
 import thesis.preprocess.results.TypeSignature
 import thesis.preprocess.spec.DataPattern
+import thesis.preprocess.spec.DataPointer
 import thesis.preprocess.spec.Spec
 import thesis.preprocess.spec.TypeSpec
 import thesis.preprocess.spec.parametrised.ParametrisedTrainableSpec
@@ -22,7 +23,7 @@ object PyTorchWriter {
         IndentedWriter(writer, INDENT).write {
             +"import torch"
             +"from runtime.modules import ConstantLayer, VariableLayer, AnonymousNetLayer, ConstructorLayer, GuardedLayer, \\"
-            +"    ApplicationLayer, TrainableLayer"
+            +"    ApplicationLayer, TrainableLayer, RecursiveLayer"
             +"from runtime.poly import TrainablePolyNet"
             +"from runtime.data import DataPointer"
             +"from runtime.types import TypeSpec, LitSpec, ExtSpec, ProdSpec"
@@ -102,7 +103,6 @@ object PyTorchWriter {
 
     private fun IndentedWriter.writePython(spec: Spec): IndentedWriter = when (spec) {
         is Spec.Object -> {
-            // TODO: Save values to npy files
             -"ConstantLayer(size=${spec.size}, position=${spec.position})"
         }
         is Spec.Variable.Object -> {
@@ -118,8 +118,16 @@ object PyTorchWriter {
             +"AnonymousNetLayer("
             indent {
                 writePython(spec.body)
-                appendLnWithoutIndent(",")
-                +"DataPointer(${spec.closurePointer.dataOffset}, ${spec.closurePointer.functionsCount})"
+                appendLnWithoutIndent(", ")
+                +spec.closurePointer.toPython()
+            }
+            -")"
+        }
+        is Spec.Function.Recursive -> {
+            +"RecursiveLayer("
+            indent {
+                writePython(spec.body)
+                appendLnWithoutIndent(", ${spec.closurePointer.toPython()}")
             }
             -")"
         }
@@ -131,7 +139,7 @@ object PyTorchWriter {
                     "'${it.key}': ${it.value}"
                 }}}")
             }
-            args.add("data_pointer=DataPointer(${spec.dataPointer.dataOffset}, ${spec.dataPointer.functionsCount})")
+            args.add("data_pointer=${spec.dataPointer.toPython()}")
             -"$polyName.instantiate(${args.joinToString(", ")})"
         }
         is Spec.Function.Constructor -> -"ConstructorLayer(${spec.fromTypeSize}, ${spec.toTypeSize}, ${spec.offset})"
@@ -229,4 +237,6 @@ object PyTorchWriter {
         is ParametrisedTrainableSpec.LayerSpec.Fixed -> size.toString()
         is ParametrisedTrainableSpec.LayerSpec.Variable -> "'$name'"
     }
+
+    private fun DataPointer.toPython() = "DataPointer($dataOffset, $functionsCount)"
 }

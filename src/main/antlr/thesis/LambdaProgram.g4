@@ -32,6 +32,7 @@ lambdaApplicationOperand : terminal=lambdaLiteral
     | LEARN_KEYWORD
     | LAMBDA lambdaName+ DOT body=lambdaExpression
     | LET_KEYWORD letBindings IN_KEYWORD body=lambdaExpression
+    | REC_KEYWORD name=lambdaName IN_KEYWORD body=lambdaExpression
     | LBR expr=lambdaExpression COLON type=parametrisedTypeDeclaration RBR
     | LBR inner=lambdaExpression RBR;
 
@@ -81,6 +82,7 @@ LEARN_KEYWORD : '@learn';
 LET_KEYWORD: '@let';
 IN_KEYWORD: '@in';
 FORALL_KEYWORD: '@forall';
+REC_KEYWORD : '@rec';
 
 // Special characters
 EQUALS : '=';
