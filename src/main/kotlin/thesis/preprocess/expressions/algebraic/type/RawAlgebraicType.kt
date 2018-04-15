@@ -2,26 +2,48 @@ package thesis.preprocess.expressions.algebraic.type
 
 import thesis.preprocess.expressions.Expression
 import thesis.preprocess.expressions.TypeName
+import thesis.preprocess.expressions.TypeVariableName
 
 /**
- * AST version of Algebraic type - it is a sum of either literal or product.
- * Every product has 1 or more literals. Literals are not resolved to types
+ * Raw algebraic type which we get from parser. We support only types whose arguments are of first kind
+ *
+ * @author Danil Kolikov
  */
 data class RawAlgebraicType(
-        val operands: List<SumOperand>
-) : Expression {
+        val name: TypeName,
+        val parameters: List<TypeVariableName>,
+        val structure: Structure
+) {
+    data class Structure(
+            val operands: List<SumOperand>
+    ) : Expression {
 
-    sealed class SumOperand {
+        sealed class SumOperand {
 
-        abstract val name: TypeName
+            abstract val name: TypeName
 
-        data class Literal(
-                override val name: TypeName
-        ) : SumOperand()
+            data class Literal(
+                    override val name: TypeName
+            ) : SumOperand()
 
-        data class Product(
-                override val name: TypeName,
-                val operands: List<Literal>
-        ) : SumOperand()
+            data class Product(
+                    override val name: TypeName,
+                    val operands: List<ProductOperand>
+            ) : SumOperand()
+        }
+
+        sealed class ProductOperand {
+
+            abstract val name: String
+
+            data class Variable(
+                    override val name: String
+            ) : ProductOperand()
+
+            data class Application(
+                    override val name: String,
+                    val arguments: List<ProductOperand>
+            ) : ProductOperand()
+        }
     }
 }

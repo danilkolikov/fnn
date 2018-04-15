@@ -1,43 +1,12 @@
-@type Bar = Z | T | Q;
-@type Foo = MkFoo Bar;
-@type Zap = MkZap Foo Foo Bar;
-
+@type Maybe a = Just a | Nothing;
+@type Either a b = Left a | Right b;
+@type Identity a = MkId a;
+@type Strange a b c= MkStrange1 a b | MkStrange2 c;
 @type Bool = False | True;
+@type Pair a b = MkPair a b;
 
-if True x y = x;
-if False x y = y;
+@type swap = Pair (Either Bool a) b -> Pair b (Either Bool a);
+swap = @learn;
 
-id x = x;
-
-not True = False;
-not False = True;
-
-@type eq = Bar -> Bar -> Bool;
-eq Z Z = True;
-eq T T = True;
-eq Q Q = True;
-eq x z = False;
-
-@type foo = (Bool -> Bool) -> Bool -> Bool;
-foo x t = x t;
-
---@type N = One | Two | Three | Four;
---
---test False False = One;
---test False True = Two;
---test True False = Three;
---test True True = Four;
-
-@type BoolBar = BB Bool Bar;
-
-@type test = a -> b;
-test = @learn;
-
-@type and = Bool -> Bool -> Bool;
-and = \x y. if x (test y) (test y);
-
-@type fst = a -> b -> c -> a;
-fst = @learn;
-
-@type main = Bar -> Bar -> Bool -> Bar;
-main x y z = fst x y z;
+@type main = Pair (Either Bool Bool) (Maybe Bool) -> Pair (Maybe Bool) (Either Bool Bool);
+main = swap;

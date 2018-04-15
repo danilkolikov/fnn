@@ -10,13 +10,19 @@ expression : typeDefinition
     | lambdaTypeDeclaration
     | lambdaDefinition;
 
-typeDefinition : TYPE_KEYWORD typeLiteral EQUALS typeExpression;
+typeDefinition : TYPE_KEYWORD typeLiteral typeVariable* EQUALS typeExpression;
 
 typeExpression : typeSumOperand (TYPE_PLUS typeSumOperand)*;
 
-typeSumOperand : typeLiteral+;
+typeSumOperand : typeLiteral | typeProduct;
 
-typeLiteral : name=TYPE_NAME;
+typeProduct : typeLiteral typeProductOperand+;
+
+typeProductOperand : typeLiteral | typeVariable | LBR typeProduct RBR;
+
+typeLiteral : TYPE_NAME;
+
+typeVariable : EXPR_NAME;
 
 lambdaDefinition : name=lambdaName patternExpression* EQUALS lambdaExpression;
 
@@ -38,13 +44,27 @@ parametrisedTypeDeclaration : typeDeclaration | FORALL_KEYWORD typeVariable+ DOT
 
 typeDeclaration : typeDeclarationOperand (ARROW typeDeclarationOperand)*;
 
-typeDeclarationOperand : typeLiteral | typeVariable | LBR typeDeclaration RBR;
+typeDeclarationOperand
+    : typeLiteral
+    | typeVariable
+    | typeApplication
+    | LBR typeDeclaration RBR
+    ;
+
+typeApplication
+    : typeLiteral typeApplicationOperand*
+    ;
+
+typeApplicationOperand
+    : typeLiteral
+    | typeVariable
+    | LBR typeDeclaration RBR
+    ;
 
 patternExpression : lambdaName
     | name=typeLiteral
     | LBR constructor=typeLiteral patternExpression+ RBR;
 
-typeVariable : EXPR_NAME;
 lambdaName : EXPR_NAME;
 lambdaLiteral : EXPR_NAME | TYPE_NAME;
 

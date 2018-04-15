@@ -22,13 +22,24 @@ class TypeDeclarationInferenceProcessor(
     override fun process(data: LinkedHashMap<TypeName, Parametrised<RawType>>) = data.map { (key, type) ->
         key to Parametrised(
                 type.parameters,
-                type.type.replaceTypes(type.parameters.toSet())
+                type.type.replaceTypes(type.parameters.toSet()),
+                type.parameters.map { it to Type.Variable(it) }.toMap()
         )
     }.toMap()
 
     private fun RawType.replaceTypes(parameters: Set<TypeVariableName>): Type = when (this) {
-        is RawType.Literal -> Type.Algebraic(typeScope[name] ?: throw UnknownTypeError(name))
+        is RawType.Literal -> Type.Application(typeScope[name] ?: throw UnknownTypeError(name), emptyList())
         is RawType.Variable -> if (parameters.contains(name)) Type.Variable(name) else throw UnknownExpressionError(name)
         is RawType.Function -> Type.Function(from.replaceTypes(parameters), to.replaceTypes(parameters))
+        is RawType.Application -> {
+            val type = typeScope[name] ?: throw UnknownTypeError(name)
+            if (args.size != type.parameters.size) {
+                throw UnexpectedTypeParametersAmount(name, type.parameters.size, args.size)
+            }
+            Type.Application(
+                    type,
+                    args.map { it.replaceTypes(parameters) }
+            )
+        }
     }
 }

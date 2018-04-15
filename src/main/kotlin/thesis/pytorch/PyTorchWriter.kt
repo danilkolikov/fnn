@@ -7,6 +7,7 @@ import thesis.preprocess.results.TypeSignature
 import thesis.preprocess.spec.DataPattern
 import thesis.preprocess.spec.Spec
 import thesis.preprocess.spec.TypeSpec
+import thesis.preprocess.spec.parametrised.ParametrisedTrainableSpec
 import java.io.FileWriter
 
 /**
@@ -29,33 +30,39 @@ object PyTorchWriter {
             +""
             +""
             +"# Type Specifications"
-            data.typeSpecs.forEach { (name, spec) ->
-                -"${getTypeSpecName(name)} = "
+            data.typeSpecs.forEach { signature, typeSignature, spec ->
+                -"${getTypeSpecName(signature, typeSignature)} = "
                 writePython(spec)
                 +""
                 +""
             }
-            +""
-            +"# Poly-net specifications"
-            data.trainable.forEach { name, instances ->
-                instances.forEachIndexed { index, parametrisedTrainableSpec ->
-                    val sizes = parametrisedTrainableSpec.argumentTypes.joinToString(", ") { it?.toString() ?: "None" }
-                    val resultSize = parametrisedTrainableSpec.resultType ?: "None"
-                    +"${getPolyNetName(name, index)} = TrainablePolyNet([$sizes], $resultSize)"
+            if (!data.trainable.isEmpty()) {
+                +""
+                +"# Poly-net specifications"
+                data.trainable.forEach { name, instances ->
+                    instances.forEachIndexed { index, parametrisedTrainableSpec ->
+                        val arguments = parametrisedTrainableSpec.argumentsTypes.joinToString(", ") {
+                            it.toPython()
+                        }
+                        val result = parametrisedTrainableSpec.resultType.joinToString(", ") {
+                            it.toPython()
+                        }
+                        +"${getPolyNetName(name, index)} = TrainablePolyNet([$arguments], [$result])"
+                    }
+                    +""
+                }
+                +""
+                +"# Update instances - this method should be called after each backprop on net with polymorphic @learn"
+                +"def update_instances():"
+                indent {
+                    data.trainable.forEach { name, instances ->
+                        instances.forEachIndexed { index, _ ->
+                            +"${getPolyNetName(name, index)}.update_instances()"
+                        }
+                    }
                 }
                 +""
             }
-            +""
-            +"# Update instances - this method should be called after each backprop on net with polymorphic @learn"
-            +"def update_instances():"
-            indent {
-                data.trainable.forEach { name, instances ->
-                    instances.forEachIndexed { index, _ ->
-                        +"${getPolyNetName(name, index)}.update_instances()"
-                    }
-                }
-            }
-            +""
             +""
             +"# Net Specifications"
             data.instances.forEach { name, type, instance ->
@@ -78,7 +85,7 @@ object PyTorchWriter {
                         indent {
                             var curOffset = 0
                             operand.operands.forEach {
-                                -"ExtSpec(${it.name}, start=$curOffset)"
+                                -"ExtSpec(${getTypeSpecName(it.signature, it.typeSignature)}, start=$curOffset)"
                                 appendLnWithoutIndent(",")
                                 curOffset += it.structure.size
                             }
@@ -119,11 +126,10 @@ object PyTorchWriter {
         is Spec.Function.Trainable -> {
             val polyName = getPolyNetName(spec.instanceSignature, spec.instancePosition)
             val args = mutableListOf<String>()
-            if (!spec.instantiatedArgs.isEmpty()) {
-                args.add("arguments_types=[${spec.instantiatedArgs.joinToString(", ")}]")
-            }
-            if (spec.instantiatedResult != null) {
-                args.add("result_type=${getTypeSpecName(spec.instantiatedResult)}")
+            if (!spec.typeParamsSize.isEmpty()) {
+                args.add("type_params={${spec.typeParamsSize.entries.joinToString(", ") {
+                    "'${it.key}': ${it.value}"
+                }}}")
             }
             args.add("data_pointer=DataPointer(${spec.dataPointer.dataOffset}, ${spec.dataPointer.functionsCount})")
             -"$polyName.instantiate(${args.joinToString(", ")})"
@@ -191,11 +197,15 @@ object PyTorchWriter {
 
     private fun IndentedWriter.writePython(pattern: DataPattern): IndentedWriter = when (pattern) {
         is DataPattern.Object -> -"ObjectPattern(\"${pattern.name}\", ${pattern.position})"
-        is DataPattern.Variable -> -("VariablePattern(\"${pattern.name}\", ${getTypeSpecName(pattern.typeName)}, " +
+        is DataPattern.Variable -> -("VariablePattern(\"${pattern.name}\", " +
+                "${getTypeSpecName(pattern.signature, pattern.typeSignature)}, " +
                 "${pattern.start}, ${pattern.end})")
     }
 
-    private fun getTypeSpecName(name: String) = name
+    private fun getTypeSpecName(
+            instanceSignature: InstanceSignature,
+            signature: TypeSignature
+    ) = (instanceSignature + signature.map { it.toPython() }).joinToString("_")
 
     private fun getNetworkName(
             instanceSignature: InstanceSignature,
@@ -211,5 +221,12 @@ object PyTorchWriter {
         is RawType.Literal -> name
         is RawType.Variable -> throw IllegalStateException("Variable $name is not instantiated")
         is RawType.Function -> "_${from.toPython()}_to_${to.toPython()}_"
+        is RawType.Application -> if (args.isEmpty()) name else
+            "_${(listOf(name) + args.map { it.toPython() }).joinToString("_")}_"
+    }
+
+    private fun ParametrisedTrainableSpec.LayerSpec.toPython(): String = when (this) {
+        is ParametrisedTrainableSpec.LayerSpec.Fixed -> size.toString()
+        is ParametrisedTrainableSpec.LayerSpec.Variable -> "'$name'"
     }
 }

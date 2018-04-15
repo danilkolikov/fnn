@@ -32,3 +32,8 @@ class UnknownTypeError(name: String) : Exception("Type $name is not defined") {
 class UnknownExpressionError(name: LambdaName) : Exception(
         "Expression with name $name is not defined"
 )
+
+class UnexpectedTypeParametersAmount(name: TypeName, expected: Int, got: Int) : Exception(
+        "Unexpected amount of parameters for type $name. " +
+                "Expected $expected, but got $got"
+)

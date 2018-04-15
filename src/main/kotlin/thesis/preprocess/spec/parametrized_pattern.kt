@@ -8,10 +8,13 @@ package thesis.preprocess.spec
 import thesis.preprocess.expressions.TypeVariableName
 import thesis.preprocess.expressions.lambda.typed.TypedPattern
 import thesis.preprocess.expressions.type.Type
+import thesis.preprocess.expressions.type.instantiate
 
 typealias ParametrizedPattern = TypedPattern<Type>
 
-fun ParametrizedPattern.instantiate(typeParams: Map<TypeVariableName, Type>): ParametrizedPattern = when (this) {
+fun ParametrizedPattern.instantiate(
+        typeParams: Map<TypeVariableName, Type>
+): ParametrizedPattern = when (this) {
     is TypedPattern.Object -> TypedPattern.Object(
             pattern,
             type.instantiate(typeParams)

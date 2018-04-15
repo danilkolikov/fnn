@@ -2,12 +2,12 @@ package thesis.preprocess.spec
 
 import thesis.preprocess.Processor
 import thesis.preprocess.expressions.LambdaName
-import thesis.preprocess.expressions.TypeName
 import thesis.preprocess.expressions.lambda.typed.TypedPattern
 import thesis.preprocess.expressions.type.Type
 import thesis.preprocess.results.Instances
 import thesis.preprocess.results.ParametrisedSpecs
 import thesis.preprocess.results.Specs
+import thesis.preprocess.spec.parametrised.ParametrisedSpec
 import thesis.preprocess.types.UnknownExpressionError
 import thesis.preprocess.types.UnknownTypeError
 import thesis.preprocess.types.UnsupportedTrainableType
@@ -22,27 +22,29 @@ class SpecCompiler : Processor<ParametrisedSpecs, Specs> {
     override fun process(data: ParametrisedSpecs): Specs {
         val instances = Instances<Spec>()
         val parametrisedInstances = Instances<ParametrisedSpec>()
+        val typeSpecs = TypeSpecCompiler().process(data.typeInstances)
 
         data.instances.forEach { signature, type, spec ->
             if (signature.size > 1) {
-                return@forEach "Will be instantiated later"
+                // Will be instantiated later
+                return@forEach
             }
             if (spec.isInstantiated()) {
                 val instantiated = spec.instantiate(
                         emptyMap(),
                         instances,
                         data.instances,
-                        data.typeSpecs,
+                        typeSpecs,
                         DataPointer(0, 0)
                 )
-                instances.set(signature, type, instantiated)
+                instances[signature, type] = instantiated
             } else {
-                parametrisedInstances.set(signature, type, spec)
+                parametrisedInstances[signature, type] = spec
             }
         }
 
         return Specs(
-                data.typeSpecs,
+                typeSpecs,
                 instances,
                 parametrisedInstances,
                 data.trainable
@@ -53,52 +55,63 @@ class SpecCompiler : Processor<ParametrisedSpecs, Specs> {
             variables: Map<LambdaName, Spec.Variable>,
             instances: Instances<Spec>,
             parametrisedInstances: Instances<ParametrisedSpec>,
-            typeSpecs: Map<TypeName, TypeSpec>,
+            typeSpecs: Instances<TypeSpec>,
             dataPointer: DataPointer
     ): Spec {
-        val type = this.type.type   // Assuming that its' fully instantiated
+        val typeInstance = type.type   // Assuming that its' fully instantiated
         return when (this) {
             is ParametrisedSpec.Variable -> variables[name] ?: throw UnknownExpressionError(name)
-            is ParametrisedSpec.Object -> Spec.Object(
-                    type,
-                    info.toType.size,
-                    info.start
-            )
-            is ParametrisedSpec.Function.Constructor -> Spec.Function.Constructor(
-                    name,
-                    type,
-                    info.arguments.map { it.structure.size }.sum(),
-                    info.toType.size,
-                    info.start
-            )
+            is ParametrisedSpec.Object -> {
+                val algebraic = (typeInstance as Type.Application).type
+                val spec = typeSpecs[algebraic.signature, type]
+                        ?: throw UnknownTypeError(algebraic.name)
+                val info = spec.constructors[name] ?: throw UnknownExpressionError(name)
+                Spec.Object(
+                        typeInstance,
+                        info.toType.size,
+                        info.start
+                )
+            }
+            is ParametrisedSpec.Function.Constructor -> {
+                val algebraic = ((typeInstance as Type.Function).getResultType() as Type.Application).type
+                val spec = typeSpecs[algebraic.signature, type]
+                        ?: throw UnknownTypeError(algebraic.name)
+                val info = spec.constructors[name] ?: throw UnknownExpressionError(name)
+                Spec.Function.Constructor(
+                        name,
+                        typeInstance,
+                        info.arguments.map { it.structure.size }.sum(),
+                        info.toType.size,
+                        info.start
+                )
+            }
             is ParametrisedSpec.Function.Trainable -> {
-                if (type.getArguments().size != trainableSpec.argumentTypes.size) {
+                if (typeInstance.getOperands().size != trainableSpec.type.getOperands().size) {
                     // Extra parameters appeared - it was instantiated by function type
-                    throw UnsupportedTrainableType(type)
+                    throw UnsupportedTrainableType(typeInstance)
                 }
-                val instantiateBy = mutableListOf<TypeName>()
-                trainableSpec.argumentTypes.zip(type.getArguments()).forEach { (type, arg) ->
-                    if (arg is Type.Algebraic) {
-                        if (type == null) {
-                            // Variable was instantiated
-                            instantiateBy.add(arg.type.name)
+                val sizes = type.typeParams.mapValues { (_, v) ->
+                    when (v) {
+                        is Type.Variable -> throw IllegalStateException("Type should be instantiated")
+                        is Type.Function -> throw IllegalStateException("Instantiation by functions is unsupported")
+                        is Type.Application -> {
+                            val typeSignature = v.args.map { it.toRaw() }
+                            val instance = typeSpecs[v.type.signature, typeSignature] ?: throw IllegalStateException(
+                                    "Type ${v.type.name} with arguments $typeSignature " +
+                                            "is not instantiated"
+                            )
+                            instance.structure.size
                         }
-                    } else {
-                        throw UnsupportedTrainableType(arg)
                     }
                 }
-                val resultType = type.getResultType() as? Type.Algebraic
-                        ?: throw UnsupportedTrainableType(type.getResultType())
-                val resultTypeName = if (trainableSpec.resultType == null) resultType.type.name else null
 
                 Spec.Function.Trainable(
                         instanceSignature,
                         instancePosition,
                         trainableSpec,
-                        type,
+                        typeInstance,
                         dataPointer,
-                        instantiateBy,
-                        resultTypeName
+                        sizes
                 )
             }
             is ParametrisedSpec.Function.Anonymous -> {
@@ -108,10 +121,11 @@ class SpecCompiler : Processor<ParametrisedSpecs, Specs> {
                     val argType = parametrised.type
                     when (argType) {
                         is Type.Variable -> throw IllegalStateException("Unexpected variable $name")
-                        is Type.Algebraic -> {
-                            // Object - save positions of representation in array
+                        is Type.Application -> {
+                            // It is object now, as we don't support mixed data types
                             val start = thisOffset
-                            val spec = typeSpecs[argType.type.name] ?: throw UnknownTypeError(argType.type.name)
+                            val spec = typeSpecs[argType.type.signature, parametrised]
+                                    ?: throw UnknownTypeError(argType.type.name)
                             thisOffset += spec.structure.size
                             val positions = start to thisOffset
                             name to Spec.Variable.Object(
@@ -127,7 +141,7 @@ class SpecCompiler : Processor<ParametrisedSpecs, Specs> {
                 }.toMap()
 
                 Spec.Function.Anonymous(
-                        type,
+                        typeInstance,
                         body.instantiate(
                                 variables + newVariables,
                                 instances,
@@ -150,20 +164,20 @@ class SpecCompiler : Processor<ParametrisedSpecs, Specs> {
                                     typeSpecs,
                                     dataPointer
                             )
-                            instances.set(signature, type, instantiated)
+                            instances[signature, type] = instantiated
                         }
                     }
                 }
                 expression.instantiate(variables, instances, parametrisedInstances, typeSpecs, dataPointer)
             }
             is ParametrisedSpec.Function.Polymorphic -> {
-                val instance = instances.get(signature, typeSignature) ?: throw IllegalStateException(
+                val instance = instances[signature, typeSignature] ?: throw IllegalStateException(
                         "Expression with signature $signature $typeSignature wasn't instantiated"
                 )
                 return Spec.Variable.External(
                         signature,
                         typeSignature,
-                        type,
+                        typeInstance,
                         instance
                 )
             }
@@ -191,7 +205,7 @@ class SpecCompiler : Processor<ParametrisedSpecs, Specs> {
 
                 // Functions without arguments are data
                 val data = operands.mapIndexed { index, lambda ->
-                    if (lambda.type is Type.Algebraic) index else null
+                    if (lambda.type is Type.Application) index else null
                 }.filterNotNull()
 
                 // Functions with arguments are functions
@@ -205,7 +219,7 @@ class SpecCompiler : Processor<ParametrisedSpecs, Specs> {
                 }
 
                 Spec.Application(
-                        type,
+                        typeInstance,
                         operands,
                         call,
                         constants,
@@ -217,22 +231,28 @@ class SpecCompiler : Processor<ParametrisedSpecs, Specs> {
                 val cases = this.cases.map { case ->
                     var functionsCount = 0
                     var thisOffset = 0
-                    val dataPatterns = mutableListOf<DataPattern>()
 
                     val variablesMap = mutableMapOf<LambdaName, Spec.Variable>()
-                    case.patterns.map { pattern ->
-                        when (pattern.type.type) {
-                            is Type.Algebraic -> {
-                                val name = (pattern.type.type as Type.Algebraic).type.name
-                                val spec = typeSpecs[name] ?: throw UnknownTypeError(name)
+                    val dataPatterns = case.patterns.flatMap { pattern ->
+                        val patternType = pattern.type.type
+                        when (patternType) {
+                            is Type.Variable -> throw IllegalStateException(
+                                    "Type variable ${pattern.type} should be instantiated"
+                            )
+                            is Type.Application -> {
+                                // All types should be instantiated at this step
+                                val argType = patternType.type
+                                val spec = typeSpecs[
+                                        argType.signature,
+                                        patternType.args.map { it.toRaw() }
+                                ]
+                                        ?: throw UnknownTypeError(argType.name)
                                 val start = thisOffset
                                 thisOffset += spec.structure.size
 
-                                pattern.addVariables(
+                                pattern.getPatterns(
                                         variablesMap,
-                                        dataPatterns,
                                         start to thisOffset,
-                                        name,
                                         typeSpecs
                                 )
                             }
@@ -244,9 +264,10 @@ class SpecCompiler : Processor<ParametrisedSpecs, Specs> {
                                 val position = functionsCount++
                                 variablesMap[functionName] = Spec.Variable.Function(
                                         functionName,
-                                        type,
+                                        typeInstance,
                                         position
                                 )
+                                emptyList()
                             }
                         }
                     }
@@ -264,57 +285,56 @@ class SpecCompiler : Processor<ParametrisedSpecs, Specs> {
                 }
                 Spec.Function.Guarded(
                         name,
-                        type,
+                        typeInstance,
                         cases
                 )
             }
         }
     }
 
-    private fun ParametrizedPattern.addVariables(
+    private fun ParametrizedPattern.getPatterns(
             variables: MutableMap<LambdaName, Spec.Variable>,
-            patterns: MutableList<DataPattern>,
             positions: Pair<Int, Int>,
-            typeName: TypeName,
-            typeSpecs: Map<TypeName, TypeSpec>
-    ) {
-        when (this) {
+            typeSpecs: Instances<TypeSpec>
+    ): List<DataPattern> {
+        // At this step every type is instantiated, so it can't be variable or function
+        val thisType = type.type as Type.Application
+        val signature = thisType.type.signature
+        val typeSignature = thisType.args.map { it.toRaw() }
+        val spec = typeSpecs[signature, typeSignature] ?: throw UnknownTypeError(thisType.type.name)
+        return when (this) {
             is TypedPattern.Object -> {
-                val spec = typeSpecs[typeName] ?: throw UnknownTypeError(typeName)
                 val constructor = spec.constructors[name] ?: throw UnknownExpressionError(name)
-                patterns.add(
-                        DataPattern.Object(name, positions.first + constructor.start)
-                )
+                val pattern = DataPattern.Object(name, positions.first + constructor.start)
+                listOf(pattern)
             }
             is TypedPattern.Variable -> {
-                val variable = Spec.Variable.Object(type.type, positions)
+                val variable = Spec.Variable.Object(this.type.type, positions)
                 variables[name] = variable
-                patterns.add(
-                        DataPattern.Variable(
-                                name,
-                                typeName,
-                                typeSpecs[typeName] ?: throw UnknownTypeError(typeName),
-                                positions.first,
-                                positions.second
-                        )
+                val pattern = DataPattern.Variable(
+                        name,
+                        spec.name,
+                        spec,
+                        signature,
+                        typeSignature,
+                        positions.first,
+                        positions.second
                 )
+                listOf(pattern)
             }
             is TypedPattern.Constructor -> {
-                val spec = typeSpecs[typeName] ?: throw UnknownTypeError(typeName)
                 val constructor = spec.constructors[name] ?: throw UnknownExpressionError(name)
 
                 var offset = positions.first
                 arguments.zip(constructor.arguments) { argument, typeSpec ->
                     val start = offset
                     offset += typeSpec.structure.size
-                    argument.addVariables(
+                    argument.getPatterns(
                             variables,
-                            patterns,
                             start to offset,
-                            typeSpec.name,
                             typeSpecs
                     )
-                }
+                }.flatMap { it }
             }
         }
     }

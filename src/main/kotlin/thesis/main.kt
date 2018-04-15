@@ -2,7 +2,7 @@ package thesis
 
 import thesis.preprocess.ast.ExpressionSorter
 import thesis.preprocess.ast.ReaderParser
-import thesis.preprocess.spec.ParametrisedSpecCompiler
+import thesis.preprocess.spec.parametrised.ParametrisedSpecCompiler
 import thesis.utils.NameGenerator
 import thesis.preprocess.spec.SpecCompiler
 import thesis.preprocess.types.TypeInferenceProcessor

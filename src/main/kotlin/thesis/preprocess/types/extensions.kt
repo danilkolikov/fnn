@@ -1,8 +1,8 @@
 package thesis.preprocess.types
 
+import thesis.preprocess.expressions.TypeName
 import thesis.preprocess.expressions.algebraic.term.AlgebraicEquation
 import thesis.preprocess.expressions.algebraic.term.AlgebraicTerm
-import thesis.preprocess.expressions.TypeName
 import thesis.preprocess.expressions.type.raw.RawType
 import thesis.utils.Edge
 import thesis.utils.UndirectedGraph
@@ -24,6 +24,34 @@ fun List<RawType>.unifyTypes(definedTypes: Set<String>): Map<TypeName, RawType> 
     return rest.map { AlgebraicEquation(first, it) }
             .inferTypes(definedTypes)
             .mapValues { (_, v) -> RawType.fromAlgebraicTerm(v) }
+}
+
+fun mergeSubstitutions(
+        subs: List<Map<String, RawType>>,
+        knownTypes: Set<TypeName>
+): Map<String, RawType> {
+    // Substitutions can intersect only by variables
+    val intersection = mutableMapOf<String, MutableList<RawType>>()
+    subs.forEach { substitution ->
+        substitution.forEach { name, type ->
+            intersection.putIfAbsent(name, mutableListOf())
+            intersection[name]?.add(type)
+        }
+    }
+    val result = mutableMapOf<String, RawType>()
+    val equations = intersection.map { (variable, list) ->
+        if (list.size == 1) {
+            // Expression appears once - can add to result without unification
+            result[variable] = list.first()
+            emptyList()
+        } else {
+            // The same expression appears in many substitutions - have to unify
+            val first = list.first().toAlgebraicTerm()
+            list.drop(1).map { AlgebraicEquation(first, it.toAlgebraicTerm()) }
+        }
+    }.flatMap { it }
+    val solution = equations.inferTypes(knownTypes).mapValues { (_, v) -> RawType.fromAlgebraicTerm(v) }
+    return result.mapValues { (_, v) -> v.replace(solution) } + solution
 }
 
 fun Map<String, RawType>.compose(other: Map<String, RawType>, knownTypes: Set<String>): Map<String, RawType> {
@@ -63,6 +91,11 @@ private fun renameTypes(
     for ((left, right) in solution) {
         if (right is AlgebraicTerm.Variable) {
             edges.add(Edge(left, right.name))
+        } else {
+            if (knownTypes.contains(left)) {
+                // Type = Function type - definitely an error
+                throw TypeInferenceErrorWithoutContext()
+            }
         }
     }
     val graph = UndirectedGraph(edges)

@@ -1,6 +1,5 @@
 package thesis.preprocess.expressions.type
 
-import thesis.preprocess.expressions.TypeName
 import thesis.preprocess.expressions.TypeVariableName
 
 /**
@@ -8,23 +7,22 @@ import thesis.preprocess.expressions.TypeVariableName
  *
  * @author Danil Kolikov
  */
-class Parametrised<T: Implication<T>>(
+open class Parametrised<T : Implication<T>>  (
         val parameters: List<TypeVariableName>,
-        val type: T
+        val type: T,
+        val typeParams: Map<TypeVariableName, T>,
+        val initialParameters: List<TypeVariableName> = parameters
 ) {
 
-    fun <S: Implication<S>> modifyType(action: (T) -> S) = action(type).bindVariables()
-
-    fun replaceLiterals(map: Map<TypeName, T>) = Parametrised(
-            parameters,
-            type.replaceLiterals(map)
-    )
-
-    fun instantiate(typeParams: Map<TypeVariableName, T>): Parametrised<T> {
-        val replaced = type.replace(typeParams)
+    fun <S : Implication<S>> modifyType(action: (T) -> S): Parametrised<S> {
+        val result = action(type)
+        val variables = result.getVariables()
+        val newParams = typeParams.mapValues { (_, v) -> action(v) }
         return Parametrised(
-                replaced.getVariables().toList(),
-                replaced
+                variables.toList(),
+                result,
+                newParams,
+                initialParameters
         )
     }
 

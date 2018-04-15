@@ -2,10 +2,12 @@ package thesis.preprocess.spec
 
 import thesis.preprocess.expressions.LambdaName
 import thesis.preprocess.expressions.TypeName
+import thesis.preprocess.expressions.TypeVariableName
 import thesis.preprocess.expressions.lambda.Typed
 import thesis.preprocess.expressions.type.Type
 import thesis.preprocess.results.InstanceSignature
 import thesis.preprocess.results.TypeSignature
+import thesis.preprocess.spec.parametrised.ParametrisedTrainableSpec
 
 
 /**
@@ -60,8 +62,7 @@ sealed class Spec : Typed<Type> {
                 val trainableSpec: ParametrisedTrainableSpec,
                 override val type: Type,
                 val dataPointer: DataPointer,
-                val instantiatedArgs: List<TypeName>,
-                val instantiatedResult: TypeName?
+                val typeParamsSize: Map<TypeVariableName, Int>
         ) : Function() {
             override val closurePointer = DataPointer.START // Assuming trainable to be defined in global scope
         }

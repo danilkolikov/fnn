@@ -7,6 +7,7 @@ package thesis.preprocess.ast
 
 import thesis.LambdaProgramParser
 import thesis.preprocess.expressions.algebraic.type.RawAlgebraicType
+import thesis.preprocess.expressions.algebraic.type.RawAlgebraicType.Structure
 import thesis.preprocess.expressions.lambda.untyped.UntypedLambda
 import thesis.preprocess.expressions.lambda.untyped.UntypedPattern
 import thesis.preprocess.expressions.type.Parametrised
@@ -30,26 +31,52 @@ fun LambdaProgramParser.ExpressionContext.toAst(): LambdaProgramExpression {
 }
 
 fun LambdaProgramParser.TypeDefinitionContext.toAst(): TypeDefinition {
-    val name = typeLiteral().toAst()
-    val expression = typeExpression().toAst()
+    val name = typeLiteral().text
+    val structure = typeExpression().toAst()
     return TypeDefinition(
-            name.name,
-            expression
+            name,
+            RawAlgebraicType(
+                    name,
+                    (typeVariable() ?: emptyList()).map { it.text },
+                    structure
+            )
     )
 }
 
-fun LambdaProgramParser.TypeLiteralContext.toAst() = RawAlgebraicType.SumOperand.Literal(text)
+fun LambdaProgramParser.TypeLiteralContext.toAst() = RawAlgebraicType.Structure.SumOperand.Literal(text)
 
-fun LambdaProgramParser.TypeExpressionContext.toAst(): RawAlgebraicType {
+fun LambdaProgramParser.TypeExpressionContext.toAst(): RawAlgebraicType.Structure {
     val operands = typeSumOperand().map { it.toAst() }
-    return RawAlgebraicType(operands)
+    return RawAlgebraicType.Structure(operands)
 }
 
-fun LambdaProgramParser.TypeSumOperandContext.toAst(): RawAlgebraicType.SumOperand {
-    val name = typeLiteral().first().toAst().name
-    val operands = typeLiteral().drop(1).map { it.toAst() }
-    return if (operands.isEmpty()) RawAlgebraicType.SumOperand.Literal(name)
-    else RawAlgebraicType.SumOperand.Product(name, operands)
+fun LambdaProgramParser.TypeSumOperandContext.toAst(): RawAlgebraicType.Structure.SumOperand {
+    if (typeLiteral() != null) {
+        return typeLiteral().toAst()
+    }
+    if (typeProduct() != null) {
+        return typeProduct().toAst()
+    }
+    throw IllegalStateException("Unexpected AST node")
+}
+
+fun LambdaProgramParser.TypeProductContext.toAst() = RawAlgebraicType.Structure.SumOperand.Product(
+        typeLiteral().text,
+        typeProductOperand().map { it.toAst() }
+)
+
+fun LambdaProgramParser.TypeProductOperandContext.toAst(): RawAlgebraicType.Structure.ProductOperand {
+    if (typeLiteral() != null) {
+        return RawAlgebraicType.Structure.ProductOperand.Application(typeLiteral().text, emptyList())
+    }
+    if (typeVariable() != null) {
+        return RawAlgebraicType.Structure.ProductOperand.Variable(typeVariable().text)
+    }
+    if (typeProduct() != null) {
+        val (name, operands) = typeProduct().toAst()
+        return RawAlgebraicType.Structure.ProductOperand.Application(name, operands)
+    }
+    throw IllegalStateException("Unexpected AST node")
 }
 
 fun LambdaProgramParser.LambdaDefinitionContext.toAst(): LambdaDefinition {
@@ -126,6 +153,27 @@ fun LambdaProgramParser.TypeDeclarationContext.toAst(): RawType {
 }
 
 fun LambdaProgramParser.TypeDeclarationOperandContext.toAst(): RawType {
+    if (typeLiteral() != null) {
+        return RawType.Literal(typeLiteral().text)
+    }
+    if (typeVariable() != null) {
+        return RawType.Variable(typeVariable().text)
+    }
+    if (typeApplication() != null) {
+        return typeApplication().toAst()
+    }
+    if (typeDeclaration() != null) {
+        return typeDeclaration().toAst()
+    }
+    throw IllegalStateException("Unexpected AST node")
+}
+
+fun LambdaProgramParser.TypeApplicationContext.toAst() = RawType.Application(
+        typeLiteral().text,
+        typeApplicationOperand().map { it.toAst() }
+)
+
+fun LambdaProgramParser.TypeApplicationOperandContext.toAst(): RawType {
     if (typeLiteral() != null) {
         return RawType.Literal(typeLiteral().text)
     }

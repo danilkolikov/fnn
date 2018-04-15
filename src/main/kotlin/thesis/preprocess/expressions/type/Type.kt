@@ -12,29 +12,14 @@ import thesis.preprocess.expressions.type.raw.RawType
  */
 sealed class Type : Expression, Implication<Type>, Replaceable<Type> {
 
-    override fun bindVariables(): Parametrised<Type> {
-        val variables = getVariables()
-        return Parametrised(
-                variables.sorted(),
-                this
-        )
-    }
-
     override fun replaceLiterals(map: Map<TypeName, Type>) = this // Type has no literals
 
     abstract fun toRaw(withVariables: Boolean = true): RawType
 
-    data class Algebraic(val type: AlgebraicType) : Type() {
-        override fun toString() = type.name
-
-        override fun getOperands() = listOf(this)
-
-        override fun getVariables() = emptySet<TypeVariableName>()
-
-        override fun replace(map: Map<String, Type>) = this // Don't replace literals
-
-        override fun toRaw(withVariables: Boolean) = RawType.Literal(type.name)
-    }
+    // In the most of case instantiation is just a replacement of variables
+    abstract fun instantiate(
+            map: Map<TypeName, Type>
+    ): Type
 
     data class Variable(val name: TypeVariableName) : Type() {
         override fun toString() = name
@@ -46,6 +31,33 @@ sealed class Type : Expression, Implication<Type>, Replaceable<Type> {
         override fun replace(map: Map<String, Type>) = map[name] ?: this
 
         override fun toRaw(withVariables: Boolean) = if (withVariables) RawType.Variable(name) else RawType.Literal(name)
+
+        override fun instantiate(map: Map<TypeName, Type>) = replace(map)
+    }
+
+    data class Application(val type: AlgebraicType, val args: List<Type>) : Type() {
+        override fun toString() = "(${type.name} ${args.joinToString(" ")})"
+
+        override fun toRaw(withVariables: Boolean) = RawType.Application(
+                type.name,
+                args.map { it.toRaw(withVariables) }
+        )
+
+        override fun getVariables() = args.flatMap { it.getVariables() }.toSet()
+
+        override fun getOperands() = listOf(this)
+
+        override fun replace(map: Map<String, Type>) = Application(
+                type,
+                args.map { it.replace(map) }
+        )
+
+        override fun instantiate(
+                map: Map<TypeName, Type>
+        ) = Application(
+                type,
+                args.map { it.instantiate(map) }
+        )
     }
 
     data class Function(val from: Type, val to: Type) : Type() {
@@ -61,5 +73,10 @@ sealed class Type : Expression, Implication<Type>, Replaceable<Type> {
         )
 
         override fun toRaw(withVariables: Boolean) = RawType.Function(from.toRaw(withVariables), to.toRaw(withVariables))
+
+        override fun instantiate(map: Map<TypeName, Type>) = Function(
+                from.instantiate(map),
+                to.instantiate(map)
+        )
     }
 }

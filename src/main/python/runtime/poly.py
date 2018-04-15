@@ -37,54 +37,46 @@ class TrainablePolyNet(Module):
         self.arguments = arguments
         self.result = result
 
-        self.weights = []
-        result_size = result.size if result is not None else 1
+        self.weights = [[] for _ in result]
+        self.biases = [None for _ in result]
         length = 0
 
         # Register parameters
-        for (idx, arg_type) in enumerate(arguments):
-            if arg_type is None:
-                # Polymorphic argument, create a 1-line array
-                weight = Parameter(torch.Tensor(result_size, 1))
-            else:
-                weight = Parameter(torch.Tensor(result_size, arg_type.size))
-            length += weight.size(1)
+        for (res_idx, result_size) in enumerate(result):
+            if type(result_size) == str:
+                # Type parameters should have size = 1
+                result_size = 1
 
-            self.weights.append(weight)
-            self.register_parameter(str(idx) + '_w', weight)
-        self.bias = Parameter(torch.Tensor(result_size))
+            for (arg_idx, arg_size) in enumerate(arguments):
+                if type(arg_size) == str:
+                    # Type parameters should have size = 1
+                    arg_size = 1
+                weight = Parameter(torch.Tensor(result_size, arg_size))
+                length += weight.size(1)
+                self.weights[res_idx].append(weight)
+                self.register_parameter(str(res_idx) + '_' + str(arg_idx) + '_w', weight)
+
+            bias = Parameter(torch.Tensor(result_size))
+            self.biases[res_idx] = bias
+            self.register_parameter(str(res_idx) + '_b', bias)
 
         # Init parameters
         stdv = 1. / math.sqrt(length)
-        for weight in self.weights:
-            weight.data.uniform_(-stdv, stdv)
+        for i in range(len(result)):
+            for weight in self.weights[i]:
+                weight.data.uniform_(-stdv, stdv)
+            self.biases[i].data.uniform_(-stdv, stdv)
         self.instances = []
-        self.bias.data.uniform_(-stdv, stdv)
 
-    def instantiate(self, arguments_types=None, result_type=None, data_pointer=None):
-        if arguments_types is None:
-            arguments_types = []
-        if result_type is None:
-            result_type = self.result
+    def instantiate(self, type_params=None, data_pointer=None):
+        if type_params is None:
+            type_params = {}
         if data_pointer is None:
             data_pointer = DataPointer.start
-        if result_type is None:
-            raise ValueError('Result type is not instantiated')
 
-        current_type = 0
-        types = []
-        for arg_type in self.arguments:
-            if arg_type is None:
-                if current_type == len(arguments_types):
-                    raise ValueError("Not enough types for instantiation")
-                arg_type = arguments_types[current_type]
-                current_type += 1
-            types.append(arg_type)
-
-        weight, bias = self._compute_parameters(types, result_type)
+        weight, bias = self._compute_parameters(type_params)
         self.instances.append({
-            'args': types,
-            'res': result_type,
+            'params': type_params,
             'weight': weight,
             'bias': bias
         })
@@ -93,7 +85,7 @@ class TrainablePolyNet(Module):
 
     def update_instances(self):
         for instance in self.instances:
-            weight, bias = self._compute_parameters(instance['args'], instance['res'])
+            weight, bias = self._compute_parameters(instance['params'])
             instance['weight'] = weight
             instance['bias'] = bias
 
@@ -103,33 +95,44 @@ class TrainablePolyNet(Module):
         # ToDo: Implement fancy type-based activation function
         return sigmoid(linear_output)
 
-    def _compute_parameters(self, args, res):
-        instance_weight = []
-        for (arg_type, instance_type, weight) in zip(self.arguments, args, self.weights):
-            if arg_type is None:
-                if self.result is None:
-                    # Both argument and result are polymorphic
-                    # Weight matrix is an "identity" multiplied by weight tensor
-                    this_weight = weight * Variable(torch.eye(res.size, instance_type.size))
-                else:
-                    # Argument is polymorphic, result is algebraic
-                    # Repeat raw to fit size of instantiated type
-                    this_weight = weight.repeat(1, instance_type.size)
-            else:
-                if self.result is None:
-                    # Argument is algebraic, result is polymorphic
-                    # Repeat column to fit size of result type
-                    this_weight = weight.repeat(res.size, 1)
-                else:
-                    # Both argument and result are algebraic
-                    this_weight = weight
+    def _compute_parameters(self, type_params):
+        final_biases = []
+        final_weights = []
+        for (res_size, weights, bias) in zip(self.result, self.weights, self.biases):
+            if type(res_size) == str:
+                res_size = type_params[res_size]
 
-            instance_weight.append(this_weight)
+            instance_weight = []
+            for (arg_size, weight) in zip(self.arguments, weights):
+                if type(arg_size) == str:
+                    arg_size = type_params[arg_size]
+                if arg_size > weight.size()[1]:
+                    if res_size > weight.size()[0]:
+                        # Both argument and result are polymorphic
+                        # Weight matrix is an "identity" multiplied by weight tensor
+                        this_weight = weight * Variable(torch.eye(res_size, arg_size))
+                    else:
+                        # Argument is polymorphic, result is algebraic
+                        # Repeat raw to fit size of instantiated type
+                        this_weight = weight.repeat(1, arg_size)
+                else:
+                    if res_size > weight.size()[0]:
+                        # Argument is algebraic, result is polymorphic
+                        # Repeat column to fit size of result type
+                        this_weight = weight.repeat(res_size, 1)
+                    else:
+                        # Both argument and result are algebraic
+                        this_weight = weight
 
-        weight = torch.cat(instance_weight, 1)
-        if self.result is None:
-            bias = self.bias.repeat(res.size)
-        else:
-            bias = self.bias
+                instance_weight.append(this_weight)
+            weight = torch.cat(instance_weight, 1)
+            if res_size > bias.size()[0]:
+                bias = bias.repeat(res_size)
+            final_weights.append(weight)
+            final_biases.append(bias)
+
+        weight = torch.cat(final_weights, 0)
+        bias = torch.cat(final_biases, 0)
+        print(weight, bias)
         return weight, bias
 

@@ -17,7 +17,7 @@ class EvalSpecCompiler : Processor<Specs, Instances<EvalSpec>> {
         val result = Instances<EvalSpec>()
         data.instances.forEach { signature, type, spec ->
             val evalSpec = spec.toEvalSpec(result) as EvalSpec.Function.Guarded
-            result.set(signature, type, evalSpec)
+            result[signature, type] = evalSpec
         }
         return result
     }

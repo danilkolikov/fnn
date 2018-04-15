@@ -2,7 +2,6 @@ package thesis.preprocess.expressions.lambda.typed
 
 import thesis.preprocess.expressions.LambdaName
 import thesis.preprocess.expressions.TypeName
-import thesis.preprocess.expressions.TypeVariableName
 import thesis.preprocess.expressions.lambda.Lambda
 import thesis.preprocess.expressions.lambda.Typed
 import thesis.preprocess.expressions.lambda.untyped.UntypedLambda
@@ -20,13 +19,11 @@ sealed class TypedLambda<T : Implication<T>> : Lambda, Typed<Parametrised<T>> {
 
     data class Literal<T : Implication<T>>(
             val lambda: UntypedLambda.Literal,
-            val instanceTypeParams: Map<TypeVariableName, T>,
             override val type: Parametrised<T>
     ) : TypedLambda<T>(), Lambda.Literal by lambda {
 
         override fun <S : Implication<S>> modifyType(action: (T) -> S) = Literal(
                 lambda,
-                instanceTypeParams.mapValues { (_, v) -> action(v) },
                 type.modifyType(action)
         )
 

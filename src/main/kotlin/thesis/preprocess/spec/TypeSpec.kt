@@ -1,7 +1,10 @@
 package thesis.preprocess.spec
 
 import thesis.preprocess.expressions.TypeName
+import thesis.preprocess.expressions.algebraic.type.AlgebraicType
 import thesis.preprocess.expressions.type.Type
+import thesis.preprocess.results.InstanceSignature
+import thesis.preprocess.results.TypeSignature
 
 /**
  * Specification of algebraic type for pattern matching
@@ -10,9 +13,14 @@ import thesis.preprocess.expressions.type.Type
  */
 data class TypeSpec(
         val name: TypeName,
+        val typeSignature: TypeSignature,
+        val type: AlgebraicType,
         val structure: Structure,
         val constructors: LinkedHashMap<TypeName, ConstructorInfo>
 ) {
+
+    val signature: InstanceSignature
+        get() = listOf(name)
 
     data class ConstructorInfo(
             val name: TypeName,
@@ -48,6 +56,5 @@ data class TypeSpec(
                 override val end = start + operands.map { it.structure.size }.sum()
             }
         }
-
     }
 }
