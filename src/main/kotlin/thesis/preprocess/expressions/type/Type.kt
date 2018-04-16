@@ -8,7 +8,9 @@ import thesis.preprocess.expressions.algebraic.type.AlgebraicType
 import thesis.preprocess.expressions.type.raw.RawType
 
 /**
- * A simple type - either literal or function
+ * Inferred type - has references to algebraic types
+ *
+ * @author Danil Kolikov
  */
 sealed class Type : Expression, Implication<Type>, Replaceable<Type> {
 
@@ -22,6 +24,7 @@ sealed class Type : Expression, Implication<Type>, Replaceable<Type> {
     ): Type
 
     data class Variable(val name: TypeVariableName) : Type() {
+
         override fun toString() = name
 
         override fun getOperands() = listOf(this)
@@ -36,7 +39,9 @@ sealed class Type : Expression, Implication<Type>, Replaceable<Type> {
     }
 
     data class Application(val type: AlgebraicType, val args: List<Type>) : Type() {
-        override fun toString() = "(${type.name} ${args.joinToString(" ")})"
+
+        override fun toString() = if (args.isEmpty()) type.name else
+            "(${type.name} ${args.joinToString(" ")})"
 
         override fun toRaw(withVariables: Boolean) = RawType.Application(
                 type.name,
@@ -61,6 +66,7 @@ sealed class Type : Expression, Implication<Type>, Replaceable<Type> {
     }
 
     data class Function(val from: Type, val to: Type) : Type() {
+
         override fun toString() = "($from → $to)"
 
         override fun getOperands() = listOf(this.from) + to.getOperands()

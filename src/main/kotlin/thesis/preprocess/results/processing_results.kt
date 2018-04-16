@@ -24,6 +24,11 @@ import thesis.preprocess.spec.TypeSpec
 
 typealias UntypedLambdaWithPatterns = LambdaWithPatterns<UntypedLambda, UntypedPattern>
 
+/**
+ * Result of parsing of lambda program - three groups of expressions
+ *
+ * @author Danil Kolikov
+ */
 data class SortedExpressions(
         val typeDefinitions: LinkedHashMap<TypeName, RawAlgebraicType>,
         val typeDeclarations: LinkedHashMap<LambdaName, Parametrised<RawType>>,
@@ -32,12 +37,25 @@ data class SortedExpressions(
 
 typealias TypedLambdaWithPatterns = LambdaWithPatterns<TypedLambda<Type>, TypedPattern<Type>>
 
+
+/**
+ * Result of type inference of single lambda expression
+ *
+ * @author Danil Kolikov
+ */
 data class InferredLambda(
         val type: Parametrised<Type>,
         val expressions: List<TypedLambdaWithPatterns>,
         val isRecursive: Boolean
 )
 
+
+/**
+ * Result of type inference of lambda program. Every type has information about it's constructors, every
+ * lambda has inferred type
+ *
+ * @author Danil Kolikov
+ */
 data class InferredExpressions(
         val typeDefinitions: LinkedHashMap<TypeName, AlgebraicType>,
         val lambdaDefinitions: LinkedHashMap<LambdaName, InferredLambda>
@@ -47,6 +65,12 @@ typealias InstanceSignature = List<LambdaName>
 
 typealias TypeSignature = List<RawType>
 
+/**
+ * Specification of program. Basically, it's the set of instances of lambda expressions, types and
+ * trainable expressions. Every instance has information about type parameters used for instantiation
+ *
+ * @author Danil Kolikov
+ */
 data class ParametrisedSpecs(
         val typeDefinitions: LinkedHashMap<TypeName, AlgebraicType>,
         val typeInstances: Instances<AlgebraicType>,
@@ -54,6 +78,12 @@ data class ParametrisedSpecs(
         val trainable: LinkedHashMap<InstanceSignature, List<ParametrisedTrainableSpec>>
 )
 
+/**
+ * Specification of executable program. For every expression there is a resolved information about stack,
+ * variables point on a specific place on stack
+ *
+ * @author Danil Kolikov
+ */
 data class Specs(
         val typeSpecs: Instances<TypeSpec>,
         val instances: Instances<Spec>,

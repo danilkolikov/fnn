@@ -12,7 +12,9 @@ import thesis.preprocess.types.UnexpectedTypeParametersAmount
 import thesis.preprocess.types.UnknownTypeError
 
 /**
- * A simple type - either literal or function
+ * AST of type
+ *
+ * @author Danil Kolikov
  */
 sealed class RawType : Expression, Implication<RawType> {
 
@@ -61,6 +63,7 @@ sealed class RawType : Expression, Implication<RawType> {
     }
 
     data class Variable(val name: TypeVariableName) : RawType() {
+
         override fun toString() = name
 
         override fun getVariables() = setOf(name)
@@ -81,7 +84,8 @@ sealed class RawType : Expression, Implication<RawType> {
     }
 
     data class Application(val name: TypeVariableName, val args: List<RawType>) : RawType() {
-        override fun toString() = "($name ${args.joinToString(" ")})"
+
+        override fun toString() = if (args.isEmpty()) name else "($name ${args.joinToString(" ")})"
 
         override fun toType(typeDefinitions: Map<TypeName, AlgebraicType>): Type {
             val type = typeDefinitions[name] ?: throw UnknownTypeError(name)
@@ -122,6 +126,7 @@ sealed class RawType : Expression, Implication<RawType> {
     }
 
     data class Function(val from: RawType, val to: RawType) : RawType() {
+
         override fun toString() = "($from → $to)"
 
         override fun getVariables() = from.getVariables() + to.getVariables()

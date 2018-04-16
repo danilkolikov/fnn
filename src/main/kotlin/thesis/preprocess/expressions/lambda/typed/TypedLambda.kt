@@ -3,13 +3,16 @@ package thesis.preprocess.expressions.lambda.typed
 import thesis.preprocess.expressions.LambdaName
 import thesis.preprocess.expressions.TypeName
 import thesis.preprocess.expressions.lambda.Lambda
-import thesis.preprocess.expressions.lambda.Typed
+import thesis.preprocess.expressions.Typed
 import thesis.preprocess.expressions.lambda.untyped.UntypedLambda
 import thesis.preprocess.expressions.type.Implication
 import thesis.preprocess.expressions.type.Parametrised
 
 /**
  * Typed lambda-expression
+ *
+ * @param T Class of type
+ * @author Danil Kolikov
  */
 sealed class TypedLambda<T : Implication<T>> : Lambda, Typed<Parametrised<T>> {
 
@@ -91,11 +94,14 @@ sealed class TypedLambda<T : Implication<T>> : Lambda, Typed<Parametrised<T>> {
             override val expression: TypedLambda<T>,
             override val type: Parametrised<T>
     ) : TypedLambda<T>(), Lambda.RecAbstraction<TypedLambda<T>> {
+
         override fun <S : Implication<S>> modifyType(action: (T) -> S) = TypedLambda.RecAbstraction(
                 argument.modifyType(action),
                 expression.modifyType(action),
                 type.modifyType(action)
         )
+
+        override fun toString() = "(@rec $argument @in $expression : $type)"
     }
 
     data class Application<T : Implication<T>>(

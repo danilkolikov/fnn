@@ -9,7 +9,7 @@ import java.io.InputStream
 import java.io.Reader
 
 /**
- * Parser for lambda programs
+ * Base Parser for lambda programs
  *
  * @author Danil Kolikov
  */
@@ -23,14 +23,32 @@ private class BaseParser : Processor<ANTLRInputStream, LambdaProgram> {
     ).program().toAst()
 }
 
+/**
+ * Parses lambda program from String input
+ *
+ * @author Danil Kolikov
+ */
 class StringParser : Processor<String, LambdaProgram> {
+
     override fun process(data: String) = BaseParser().process(ANTLRInputStream(data))
 }
 
+/**
+ * Parses lambda programs from stream input
+ *
+ * @author Danil Kolikov
+ */
 class StreamParser : Processor<InputStream, LambdaProgram> {
+
     override fun process(data: InputStream) = BaseParser().process(ANTLRInputStream(data))
 }
 
+/**
+ * Parses lambda programs using Reader
+ *
+ * @author Danil Kolikov
+ */
 class ReaderParser : Processor<Reader, LambdaProgram> {
+
     override fun process(data: Reader) = BaseParser().process(ANTLRInputStream(data))
 }

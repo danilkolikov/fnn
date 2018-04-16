@@ -1,5 +1,7 @@
 /**
  * Utility graph algorithms
+ *
+ * @author Danil Kolikov
  */
 package thesis.utils
 
@@ -8,6 +10,7 @@ data class Edge<out T>(val from: T, val to: T)
 class UndirectedGraph<T>(
         val edges: MutableMap<T, MutableList<T>>
 ) {
+
     constructor() : this(mutableMapOf())
 
     constructor(edges: List<Edge<T>>) : this() {

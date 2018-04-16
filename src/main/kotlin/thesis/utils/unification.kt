@@ -1,11 +1,16 @@
 /**
  *  Unification algorithm for type inference
+ *
+ *  @author Danil Kolikov
  */
 package thesis.utils
 
 import thesis.preprocess.expressions.algebraic.term.AlgebraicEquation
 import thesis.preprocess.expressions.algebraic.term.AlgebraicTerm
 
+/**
+ * Solves system of algebraic equations
+ */
 fun solveSystem(system: List<AlgebraicEquation>): Map<String, AlgebraicTerm> {
     var newSystem: List<AlgebraicEquation> = ArrayList(system)
     while (true) {

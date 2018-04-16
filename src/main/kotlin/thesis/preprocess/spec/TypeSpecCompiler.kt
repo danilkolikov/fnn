@@ -12,6 +12,7 @@ import thesis.preprocess.results.Instances
  */
 class TypeSpecCompiler :
         Processor<Instances<AlgebraicType>, Instances<TypeSpec>> {
+
     override fun process(data: Instances<AlgebraicType>): Instances<TypeSpec> {
         val result = Instances<TypeSpec>()
         data.forEach { name, typeSignature, type ->

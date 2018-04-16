@@ -13,7 +13,7 @@ import thesis.preprocess.types.UnknownTypeError
 import thesis.preprocess.types.UnsupportedTrainableType
 
 /**
- * Specifies parameters for parametrised specs
+ * Compiles parametrised specs to usual specs
  *
  * @author Danil Kolikov
  */

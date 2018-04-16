@@ -12,10 +12,12 @@ sealed class Kind {
      * @author Danil Kolikov
      */
     object Star : Kind() {
+
         override fun toString() = "*"
     }
 
     data class Function(val from: Kind, val to: Kind) : Kind() {
+
         override fun toString() = "$from → $to"
     }
 

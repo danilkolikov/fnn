@@ -28,6 +28,7 @@ class LambdaInferenceProcessor(
         private val typeDeclarations: Map<LambdaName, Parametrised<Type>>
 ) : Processor<LinkedHashMap<LambdaName, List<UntypedLambdaWithPatterns>>,
         LinkedHashMap<LambdaName, InferredLambda>> {
+
     override fun process(
             data: LinkedHashMap<LambdaName, List<UntypedLambdaWithPatterns>>
     ): LinkedHashMap<LambdaName, InferredLambda> {

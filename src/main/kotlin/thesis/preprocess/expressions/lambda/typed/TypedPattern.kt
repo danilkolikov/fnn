@@ -3,7 +3,7 @@ package thesis.preprocess.expressions.lambda.typed
 import thesis.preprocess.expressions.LambdaName
 import thesis.preprocess.expressions.TypeName
 import thesis.preprocess.expressions.lambda.Pattern
-import thesis.preprocess.expressions.lambda.Typed
+import thesis.preprocess.expressions.Typed
 import thesis.preprocess.expressions.lambda.untyped.UntypedPattern
 import thesis.preprocess.expressions.type.Implication
 import thesis.preprocess.expressions.type.Parametrised
@@ -11,6 +11,7 @@ import thesis.preprocess.expressions.type.Parametrised
 /**
  * Pattern for pattern-matching
  *
+ *  @param T class of type
  * @author Danil Kolikov
  */
 sealed class TypedPattern<T: Implication<T>> : Pattern, Typed<Parametrised<T>> {
@@ -36,7 +37,7 @@ sealed class TypedPattern<T: Implication<T>> : Pattern, Typed<Parametrised<T>> {
                 type.modifyType(action)
         )
 
-        override fun toString() = name
+        override fun toString() = "($name : $type)"
     }
 
     data class Object<T: Implication<T>>(
@@ -51,7 +52,7 @@ sealed class TypedPattern<T: Implication<T>> : Pattern, Typed<Parametrised<T>> {
                 type.modifyType(action)
         )
 
-        override fun toString() = name
+        override fun toString() = "($name : $type)"
     }
 
     data class Constructor<T: Implication<T>>(
@@ -68,6 +69,6 @@ sealed class TypedPattern<T: Implication<T>> : Pattern, Typed<Parametrised<T>> {
                 type.modifyType(action)
         )
 
-        override fun toString() = "($name ${arguments.joinToString(" ")})"
+        override fun toString() = "($name ${arguments.joinToString(" ")} : $type)"
     }
 }

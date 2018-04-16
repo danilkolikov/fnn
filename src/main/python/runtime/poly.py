@@ -32,6 +32,7 @@ class TrainablePolyNet(Module):
 
     After each backprop through instances, the method `update_instances` should be called to recompute instance graph
     """
+
     def __init__(self, arguments, result):
         super().__init__()
         self.arguments = arguments

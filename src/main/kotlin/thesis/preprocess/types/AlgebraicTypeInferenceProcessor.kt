@@ -15,6 +15,7 @@ import thesis.preprocess.expressions.type.Type
  */
 class AlgebraicTypeInferenceProcessor :
         Processor<LinkedHashMap<TypeName, RawAlgebraicType>, LinkedHashMap<TypeName, AlgebraicType>> {
+
     override fun process(
             data: LinkedHashMap<TypeName, RawAlgebraicType>
     ): LinkedHashMap<TypeName, AlgebraicType> {

@@ -113,6 +113,7 @@ sealed class EvalSpec {
                     val spec: Spec.Function.Guarded.Case,
                     val body: EvalSpec
             ) {
+
                 fun getPresence(
                         arguments: DataBag
                 ) = spec.patterns
@@ -148,6 +149,7 @@ sealed class EvalSpec {
                 override val spec: Spec.Function.Anonymous,
                 val body: EvalSpec
         ) : Function() {
+
             override fun eval(arguments: DataBag) = body.eval(arguments)
         }
 
@@ -155,6 +157,7 @@ sealed class EvalSpec {
                 override val spec: Spec.Function.Recursive,
                 val body: EvalSpec
         ) : Function() {
+
             override fun eval(arguments: DataBag): EvalResult {
                 val newArgs = DataBag(emptyList(), listOf(body))
                 val raw = arguments.getArgumentsBefore(spec.closurePointer).append(newArgs)
@@ -167,6 +170,7 @@ sealed class EvalSpec {
             val spec: Spec.Application,
             val operands: List<EvalSpec>
     ) : EvalSpec() {
+
         override fun eval(arguments: DataBag): EvalResult {
             // Resolve variables and eval applications
             val resolved = operands.mapIndexed { index, rawLambda ->

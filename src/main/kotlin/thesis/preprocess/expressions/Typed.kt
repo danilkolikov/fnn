@@ -1,4 +1,4 @@
-package thesis.preprocess.expressions.lambda
+package thesis.preprocess.expressions
 
 /**
  * Typed expression
@@ -7,5 +7,6 @@ package thesis.preprocess.expressions.lambda
  * @author Danil Kolikov
  */
 interface Typed<out T> {
+
     val type: T
 }

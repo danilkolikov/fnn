@@ -4,7 +4,7 @@ import thesis.preprocess.expressions.LambdaName
 import thesis.preprocess.expressions.TypeName
 
 /**
- * Pattern for matching
+ * Interface of pattern for pattern-matching
  *
  * @author Danil Kolikov
  */

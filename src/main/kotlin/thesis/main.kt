@@ -1,39 +1,60 @@
 package thesis
 
+import com.xenomachina.argparser.ArgParser
+import com.xenomachina.argparser.mainBody
+import thesis.eval.DataBag
+import thesis.eval.EvalSpecCompiler
 import thesis.preprocess.ast.ExpressionSorter
 import thesis.preprocess.ast.ReaderParser
-import thesis.preprocess.spec.parametrised.ParametrisedSpecCompiler
-import thesis.utils.NameGenerator
 import thesis.preprocess.spec.SpecCompiler
+import thesis.preprocess.spec.parametrised.ParametrisedSpecCompiler
 import thesis.preprocess.types.TypeInferenceProcessor
 import thesis.pytorch.PyTorchWriter
+import thesis.utils.NameGenerator
 import java.io.FileReader
 import java.io.FileWriter
+import java.nio.file.Files
+import java.nio.file.Paths
 
 
-fun main(args: Array<String>) {
-    FileReader("src/main/fnn/test.fnn").use {
-        val ast = ReaderParser().process(it)
-        println(ast)
+fun main(args: Array<String>) = mainBody {
+    val parsedArgs = ArgParser(args).parseInto(::CompilerArgs)
+    parsedArgs.run {
+        val outputDirectory = Paths.get(directory)
+        val printer = if (verbose) ConsolePrettyPrinter() else NoOpPrettyPrinter()
+        input.forEach { file ->
+            FileReader(file).use {
+                val ast = ReaderParser().process(it)
+                val sorted = ExpressionSorter().process(ast)
+                val nameGenerator = NameGenerator()
+                val inferred = TypeInferenceProcessor(nameGenerator).process(sorted)
+                printer.print(inferred)
 
-        val sorted = ExpressionSorter().process(ast)
-        println(sorted)
+                val parametrisedSpec = ParametrisedSpecCompiler().process(inferred)
+                printer.print(parametrisedSpec)
 
-        val nameGenerator = NameGenerator()
+                val specs = SpecCompiler().process(parametrisedSpec)
 
-        val inferred = TypeInferenceProcessor(nameGenerator).process(sorted)
-        println(inferred)
+                when (mode) {
+                    CompilerMode.COMPILE -> {
+                        val filePath = Paths.get(file)
+                        val fileName = filePath.fileName
+                        val outputFileName = fileName.toString().replaceAfterLast(".", "py")
+                        val outputFile = outputDirectory.resolve(outputFileName)
 
-        val parametrisedSpec = ParametrisedSpecCompiler().process(inferred)
-        println(parametrisedSpec)
-
-        val specs = SpecCompiler().process(parametrisedSpec)
-        println(specs)
-
-//        val compiled = EvalSpecCompiler().process(specs)
-//        println(?.eval(DataBag.EMPTY))
-        FileWriter("src/main/python/test.py").use {
-            PyTorchWriter.writeSpecToFile(it, specs)
+                        Files.createDirectories(outputDirectory)
+                        FileWriter(outputFile.toFile()).use {
+                            PyTorchWriter.writeSpecToFile(it, specs)
+                        }
+                    }
+                    CompilerMode.EXECUTE -> {
+                        val compiled = EvalSpecCompiler().process(specs)
+                        compiled[listOf("main"), emptyList()]?.eval(DataBag.EMPTY)?.let {
+                            println(it)
+                        }
+                    }
+                }
+            }
         }
     }
 }

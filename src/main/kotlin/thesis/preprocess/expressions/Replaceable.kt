@@ -1,7 +1,9 @@
 package thesis.preprocess.expressions
 
 /**
- * Interface for expressions that allows replacement of variables to expressions
+ * Interface for expressions that allow replacement of variables to expressions
+ *
+ * @author Danil Kolikov
  */
 interface Replaceable<T> {
 

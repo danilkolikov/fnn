@@ -8,7 +8,7 @@ import thesis.preprocess.expressions.type.Type
 import thesis.preprocess.types.UnsupportedTrainableType
 
 /**
- * Specification for parametrised trainable expression that is instantiated in python code
+ * Specification of a parametrised trainable expression which is instantiated in python code
  *
  * @author Danil Kolikov
  */
@@ -18,7 +18,9 @@ data class ParametrisedTrainableSpec(
         val argumentsTypes: List<LayerSpec>,
         val resultType: List<LayerSpec>
 ) {
+
     sealed class LayerSpec {
+
         data class Fixed(val size: Int) : LayerSpec()
 
         data class Variable(val name: LambdaName) : LayerSpec()
@@ -33,7 +35,7 @@ data class ParametrisedTrainableSpec(
             val args = mergeSignatures(arguments.flatMap { it.toSignatures() })
             val result = mergeSignatures(resultType.toSignatures())
             return ParametrisedTrainableSpec(
-                    type,
+                    parametrised.type,
                     parametrised.parameters.toSet(),
                     args,
                     result

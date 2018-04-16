@@ -1,5 +1,7 @@
 /**
  * AST for Lambda Program
+ *
+ * @author Danil Kolikov
  */
 package thesis.preprocess.ast
 

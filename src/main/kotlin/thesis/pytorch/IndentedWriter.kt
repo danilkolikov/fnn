@@ -3,7 +3,7 @@ package thesis.pytorch
 import java.io.Writer
 
 /**
- * Wrapper around Writer that adds support for indentation
+ * Wrapper around Writer that adds support for indentation in DSL-style
  *
  * @author Danil Kolikov
  */
@@ -11,6 +11,7 @@ class IndentedWriter(
         private val writer: Writer,
         private val indent: String
 ) {
+
     private var indentation = 0
 
     private fun appendIndent() {

@@ -14,9 +14,13 @@ data class RawAlgebraicType(
         val parameters: List<TypeVariableName>,
         val structure: Structure
 ) {
+    override fun toString() = "$name ${parameters.joinToString(" ")} = $structure"
+
     data class Structure(
             val operands: List<SumOperand>
     ) : Expression {
+
+        override fun toString() = operands.joinToString(" | ")
 
         sealed class SumOperand {
 
@@ -24,12 +28,16 @@ data class RawAlgebraicType(
 
             data class Literal(
                     override val name: TypeName
-            ) : SumOperand()
+            ) : SumOperand() {
+                override fun toString() = name
+            }
 
             data class Product(
                     override val name: TypeName,
                     val operands: List<ProductOperand>
-            ) : SumOperand()
+            ) : SumOperand() {
+                override fun toString() = "$name ${operands.joinToString(" ")}"
+            }
         }
 
         sealed class ProductOperand {
@@ -38,12 +46,16 @@ data class RawAlgebraicType(
 
             data class Variable(
                     override val name: String
-            ) : ProductOperand()
+            ) : ProductOperand() {
+                override fun toString() = name
+            }
 
             data class Application(
                     override val name: String,
                     val arguments: List<ProductOperand>
-            ) : ProductOperand()
+            ) : ProductOperand() {
+                override fun toString() = "($name ${arguments.joinToString(" ")}"
+            }
         }
     }
 }

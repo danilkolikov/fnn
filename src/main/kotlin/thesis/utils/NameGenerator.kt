@@ -2,8 +2,11 @@ package thesis.utils
 
 /**
  * Generates unique names for types and variables
+ *
+ * @author Danil Kolikov
  */
 class NameGenerator(private val namePrefix: String) {
+
     private val counters = mutableMapOf<String, Int>()
 
     constructor() : this(NAME_PREFIX)

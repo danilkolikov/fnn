@@ -5,7 +5,8 @@ import thesis.preprocess.expressions.lambda.LambdaWithPatterns
 import thesis.preprocess.results.SortedExpressions
 
 /**
- * Separates expressions of lambda program to 3 categories
+ * Separates expressions of lambda program to 3 groups - type definitions,
+ * declarations of lambda expressions and lambda expressions
  *
  * @author Danil Kolikov
  */

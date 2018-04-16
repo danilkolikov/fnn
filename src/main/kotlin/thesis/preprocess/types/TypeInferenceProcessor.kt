@@ -13,6 +13,7 @@ import thesis.utils.NameGenerator
 class TypeInferenceProcessor(
         private val nameGenerator: NameGenerator
 ) : Processor<SortedExpressions, InferredExpressions> {
+
     override fun process(data: SortedExpressions): InferredExpressions {
         val typeInfo = AlgebraicTypeInferenceProcessor()
                 .process(data.typeDefinitions)

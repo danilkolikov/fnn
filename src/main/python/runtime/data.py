@@ -2,6 +2,10 @@ import torch
 
 
 class DataPointer:
+    """
+    Points of some location in DataBag
+    """
+
     def __init__(self, data, nets):
         self.data = data
         self.nets = nets
@@ -13,6 +17,10 @@ DataPointer.start = DataPointer(0, 0)
 
 
 class DataBag:
+    """
+    Contains information required for execution of the network
+    """
+
     def __init__(self, data, nets):
         self.data = data
         self.nets = nets

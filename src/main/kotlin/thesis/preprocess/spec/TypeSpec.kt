@@ -35,6 +35,7 @@ data class TypeSpec(
     ) : InMemoryType {
 
         override val start = operands.first().start
+
         override val end = operands.last().end
 
         sealed class SumOperand : InMemoryType {
@@ -45,6 +46,7 @@ data class TypeSpec(
                     override val name: TypeName,
                     override val start: Int
             ) : SumOperand() {
+
                 override val end = start + 1
             }
 
@@ -53,6 +55,7 @@ data class TypeSpec(
                     val operands: List<TypeSpec>,
                     override val start: Int
             ) : SumOperand() {
+
                 override val end = start + operands.map { it.structure.size }.sum()
             }
         }

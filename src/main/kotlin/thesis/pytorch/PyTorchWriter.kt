@@ -12,11 +12,12 @@ import thesis.preprocess.spec.parametrised.ParametrisedTrainableSpec
 import java.io.FileWriter
 
 /**
- * Writes specs to python
+ * Generates PyTorch code that describes specs
  *
  * @author Danil Kolikov
  */
 object PyTorchWriter {
+
     private const val INDENT = "    "
 
     fun writeSpecToFile(writer: FileWriter, data: Specs) {

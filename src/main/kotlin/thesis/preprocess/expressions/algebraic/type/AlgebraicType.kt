@@ -7,7 +7,7 @@ import thesis.preprocess.expressions.type.instantiate
 import thesis.preprocess.expressions.type.raw.RawType
 
 /**
- * Representation of algebraic type
+ * Representation of algebraic type. Has inferred kind, structure and types of constructors
  *
  * @author Danil Kolikov
  */
@@ -38,7 +38,7 @@ class AlgebraicType(
     val signature: List<String>
         get() = listOf(name)
 
-    override fun toString() = "$name ${parameters.joinToString(" ")}"
+    override fun toString() = "$name ${parameters.joinToString(" ")} = $structure"
 
     data class Structure(
             val operands: List<SumOperand>
@@ -56,6 +56,8 @@ class AlgebraicType(
 
         fun getVariables() = operands.flatMap { it.getVariables() }.toSet()
 
+        override fun toString() = operands.joinToString(" | ")
+
         sealed class SumOperand {
 
             abstract val name: TypeName
@@ -69,16 +71,22 @@ class AlgebraicType(
             data class Object(
                     override val name: TypeName
             ) : SumOperand() {
+
                 override fun replaceVariables(map: Map<TypeVariableName, ProductOperand>) = this
+
                 override fun getVariables() = emptySet<TypeVariableName>()
+
                 override val size: Int?
                     get() = 1
+
+                override fun toString() = name
             }
 
             data class Product(
                     override val name: TypeName,
                     val operands: List<ProductOperand>
             ) : SumOperand() {
+
                 override fun replaceVariables(map: Map<TypeVariableName, ProductOperand>) = Product(
                         name,
                         operands.map { it.replace(map) }
@@ -91,6 +99,8 @@ class AlgebraicType(
                         val sizes = operands.map { it.size }
                         return if (sizes.any { it == null }) null else sizes.filterNotNull().sum()
                     }
+
+                override fun toString() = "$name ${operands.joinToString(" ")}"
             }
         }
 
@@ -105,18 +115,24 @@ class AlgebraicType(
             data class Variable(
                     val name: TypeVariableName
             ) : ProductOperand() {
+
                 override fun replace(map: Map<String, ProductOperand>) = map[name] ?: this
+
                 override fun getVariables() = setOf(name)
+
                 override fun toRaw() = RawType.Variable(name)
 
                 override val size: Int?
                     get() = null
+
+                override fun toString() = name
             }
 
             data class Application(
                     val type: AlgebraicType,
                     val arguments: List<ProductOperand>
             ) : ProductOperand() {
+
                 override fun replace(map: Map<String, ProductOperand>) = Application(
                         type,
                         arguments.map { it.replace(map) }
@@ -138,6 +154,8 @@ class AlgebraicType(
                         }
                         return type.structure.size
                     }
+
+                override fun toString() = "(${type.name} ${arguments.joinToString(" ")}"
             }
         }
     }

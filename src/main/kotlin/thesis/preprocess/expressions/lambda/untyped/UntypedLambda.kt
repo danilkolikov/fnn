@@ -6,7 +6,9 @@ import thesis.preprocess.expressions.type.Parametrised
 import thesis.preprocess.expressions.type.raw.RawType
 
 /**
- * Untyped Lambda-expression
+ * AST of untyped lambda-expression
+ *
+ * @author Danil Kolikov
  */
 sealed class UntypedLambda : Lambda {
 

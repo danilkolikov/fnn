@@ -3,7 +3,7 @@ package thesis.preprocess.spec
 import thesis.preprocess.expressions.LambdaName
 import thesis.preprocess.expressions.TypeName
 import thesis.preprocess.expressions.TypeVariableName
-import thesis.preprocess.expressions.lambda.Typed
+import thesis.preprocess.expressions.Typed
 import thesis.preprocess.expressions.type.Type
 import thesis.preprocess.results.InstanceSignature
 import thesis.preprocess.results.TypeSignature
@@ -18,6 +18,7 @@ import thesis.preprocess.spec.parametrised.ParametrisedTrainableSpec
 sealed class Spec : Typed<Type> {
 
     sealed class Variable : Spec() {
+
         data class Object(
                 override val type: Type,
                 val positions: Pair<Int, Int>
@@ -65,6 +66,8 @@ sealed class Spec : Typed<Type> {
                 val typeParamsSize: Map<TypeVariableName, Int>
         ) : Function() {
             override val closurePointer = DataPointer.START // Assuming trainable to be defined in global scope
+
+            override fun toString() = "[@learn: $type]"
         }
 
         data class Constructor(
@@ -77,7 +80,7 @@ sealed class Spec : Typed<Type> {
 
             override val closurePointer = DataPointer.START // Defined in global scope
 
-            override fun toString() = name
+            override fun toString() = "[$name: $type]"
         }
 
         data class Guarded(
@@ -94,6 +97,7 @@ sealed class Spec : Typed<Type> {
                     val patterns: List<DataPattern>,
                     val body: Spec
             ) {
+
                 override fun toString() = "${patterns.joinToString(" ")} -> $body"
             }
         }
@@ -113,7 +117,8 @@ sealed class Spec : Typed<Type> {
                 override val type: Type,
                 override val closurePointer: DataPointer
         ) : Function() {
-            override fun toString() = "(@rec $name @in $body)"
+
+            override fun toString() = "(rec: $body)"
         }
     }
 

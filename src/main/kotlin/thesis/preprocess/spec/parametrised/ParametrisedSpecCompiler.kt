@@ -19,6 +19,7 @@ import thesis.preprocess.types.UnknownExpressionError
  * @author Danil Kolikov
  */
 class ParametrisedSpecCompiler : Processor<InferredExpressions, ParametrisedSpecs> {
+
     override fun process(data: InferredExpressions): ParametrisedSpecs {
         val compiled = mutableMapOf<LambdaName, ParametrisedSpec>()
         val instances = Instances<ParametrisedSpec>()

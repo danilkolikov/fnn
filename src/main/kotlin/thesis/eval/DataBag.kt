@@ -3,7 +3,7 @@ package thesis.eval
 import thesis.preprocess.spec.DataPointer
 
 /**
- * Arguments for raw lambda eval
+ * Arguments for raw lambda evaluation
  *
  * @author Danil Kolikov
  */

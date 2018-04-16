@@ -4,46 +4,84 @@ grammar LambdaProgram;
     package thesis;
 }
 
-program : (expression SEMICOLON)* EOF;
+program
+    : (expression SEMICOLON)* EOF
+    ;
 
-expression : typeDefinition
+expression
+    : typeDefinition
     | lambdaTypeDeclaration
-    | lambdaDefinition;
+    | lambdaDefinition
+    ;
 
-typeDefinition : TYPE_KEYWORD typeLiteral typeVariable* EQUALS typeExpression;
+typeDefinition
+    : TYPE_KEYWORD typeLiteral typeVariable* EQUALS typeExpression
+    ;
 
-typeExpression : typeSumOperand (TYPE_PLUS typeSumOperand)*;
+typeExpression
+    : typeSumOperand (TYPE_PLUS typeSumOperand)*
+    ;
 
-typeSumOperand : typeLiteral | typeProduct;
+typeSumOperand
+    : typeLiteral
+    | typeProduct
+    ;
 
-typeProduct : typeLiteral typeProductOperand+;
+typeProduct
+    : typeLiteral typeProductOperand+
+    ;
 
-typeProductOperand : typeLiteral | typeVariable | LBR typeProduct RBR;
+typeProductOperand
+    : typeLiteral
+    | typeVariable
+    | LBR typeProduct RBR
+    ;
 
-typeLiteral : TYPE_NAME;
+typeLiteral
+    : TYPE_NAME
+    ;
 
-typeVariable : EXPR_NAME;
+typeVariable
+    : EXPR_NAME
+    ;
 
-lambdaDefinition : name=lambdaName patternExpression* EQUALS lambdaExpression;
+lambdaDefinition
+    : name=lambdaName patternExpression* EQUALS lambdaExpression
+    ;
 
-lambdaExpression : lambdaApplicationOperand+;
+lambdaExpression
+    : lambdaApplicationOperand+
+    ;
 
-lambdaApplicationOperand : terminal=lambdaLiteral
+lambdaApplicationOperand
+    : terminal=lambdaLiteral
     | LEARN_KEYWORD
     | LAMBDA lambdaName+ DOT body=lambdaExpression
     | LET_KEYWORD letBindings IN_KEYWORD body=lambdaExpression
     | REC_KEYWORD name=lambdaName IN_KEYWORD body=lambdaExpression
     | LBR expr=lambdaExpression COLON type=parametrisedTypeDeclaration RBR
-    | LBR inner=lambdaExpression RBR;
+    | LBR inner=lambdaExpression RBR
+    ;
 
-letBindings : letBinding (COMMA letBinding)*;
-letBinding : lambdaName EQUALS lambdaExpression;
+letBindings
+    : letBinding (COMMA letBinding)*
+    ;
+letBinding
+    : lambdaName EQUALS lambdaExpression
+    ;
 
-lambdaTypeDeclaration : TYPE_KEYWORD name=lambdaName EQUALS parametrisedTypeDeclaration;
+lambdaTypeDeclaration
+    : TYPE_KEYWORD name=lambdaName EQUALS parametrisedTypeDeclaration
+    ;
 
-parametrisedTypeDeclaration : typeDeclaration | FORALL_KEYWORD typeVariable+ DOT typeDeclaration;
+parametrisedTypeDeclaration
+    : typeDeclaration
+    | FORALL_KEYWORD typeVariable+ DOT typeDeclaration
+    ;
 
-typeDeclaration : typeDeclarationOperand (ARROW typeDeclarationOperand)*;
+typeDeclaration
+    : typeDeclarationOperand (ARROW typeDeclarationOperand)*
+    ;
 
 typeDeclarationOperand
     : typeLiteral
@@ -62,12 +100,20 @@ typeApplicationOperand
     | LBR typeDeclaration RBR
     ;
 
-patternExpression : lambdaName
+patternExpression
+    : lambdaName
     | name=typeLiteral
-    | LBR constructor=typeLiteral patternExpression+ RBR;
+    | LBR constructor=typeLiteral patternExpression+ RBR
+    ;
 
-lambdaName : EXPR_NAME;
-lambdaLiteral : EXPR_NAME | TYPE_NAME;
+lambdaName
+    : EXPR_NAME
+    ;
+
+lambdaLiteral
+    : EXPR_NAME
+    | TYPE_NAME
+    ;
 
 // Whitespace
 WS : [\t \r\n]+ -> skip;

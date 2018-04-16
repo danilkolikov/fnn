@@ -7,7 +7,7 @@ import thesis.preprocess.spec.Spec
 import thesis.preprocess.types.UnknownExpressionError
 
 /**
- * Compiles specs to executable versions
+ * Compiles specs to their executable versions
  *
  * @author Danil Kolikov
  */

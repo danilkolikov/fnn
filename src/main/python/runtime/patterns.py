@@ -2,6 +2,9 @@ from abc import abstractmethod
 
 
 class Pattern:
+    """
+    Base class for pattern for pattern-matching
+    """
 
     @abstractmethod
     def calc_presence(self, data):
@@ -9,6 +12,9 @@ class Pattern:
 
 
 class ObjectPattern(Pattern):
+    """
+    Pattern that represents occurrence of some type literal, for example `False`
+    """
 
     def __init__(self, name, position):
         self.name = name
@@ -19,6 +25,9 @@ class ObjectPattern(Pattern):
 
 
 class VariablePattern(Pattern):
+    """
+    Pattern that represents occurrence of a variable in object, for example `Just x`
+    """
 
     def __init__(self, name, type_spec, start, end):
         self.name = name

@@ -10,6 +10,7 @@ import thesis.preprocess.expressions.type.typeSignature
  * @author Danil Kolikov
  */
 class Instances<T> {
+
     val map = LinkedHashMap<InstanceSignature, LinkedHashMap<TypeSignature, T>>()
 
     operator fun set(instanceSignature: InstanceSignature, typeSignature: TypeSignature, obj: T) {
@@ -35,6 +36,8 @@ class Instances<T> {
 
     fun containsKey(instanceSignature: InstanceSignature, typeSignature: TypeSignature) =
             map.containsKey(instanceSignature) && map[instanceSignature]!!.containsKey(typeSignature)
+
+    fun isEmpty() = map.isEmpty() || map.all { it.value.isEmpty() }
 
     override fun toString() = map.toString()
 }

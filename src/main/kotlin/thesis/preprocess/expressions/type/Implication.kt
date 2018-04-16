@@ -4,7 +4,7 @@ import thesis.preprocess.expressions.Replaceable
 import thesis.preprocess.expressions.TypeName
 
 /**
- * Interface for structures similar to implication
+ * Interface for structures similar to type
  *
  * @author Danil Kolikov
  */
