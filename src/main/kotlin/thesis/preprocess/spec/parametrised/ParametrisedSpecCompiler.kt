@@ -84,9 +84,18 @@ class ParametrisedSpecCompiler : Processor<InferredExpressions, ParametrisedSpec
                         instances,
                         trainable
                 )
+                val application = if (case is ParametrisedSpec.Function.Polymorphic) {
+                    // It's a call of functions, it's better to wrap into Application
+                    ParametrisedSpec.Application(
+                            listOf(case),
+                            listOf(name),
+                            case.type
+                    )
+                } else case
+
                 cases.add(ParametrisedSpec.Function.Guarded.Case(
                         patterns,
-                        case
+                        application
                 ))
             }
             val guarded = ParametrisedSpec.Function.Guarded(name, cases, lambda.type)

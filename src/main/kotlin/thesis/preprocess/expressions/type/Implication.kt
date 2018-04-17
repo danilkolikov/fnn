@@ -14,6 +14,9 @@ interface Implication<T : Implication<T>> : Replaceable<T>, WithVariables {
 
     fun getOperands(): List<T>
 
+    val isObject: Boolean
+        get() = getArguments().isEmpty()
+
     fun getArguments() = getOperands().dropLast(1)
 
     fun getResultType() = getOperands().last()

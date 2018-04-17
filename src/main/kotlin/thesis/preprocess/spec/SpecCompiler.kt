@@ -216,7 +216,8 @@ class SpecCompiler : Processor<ParametrisedSpecs, Specs> {
                 // Save positions of constants to evaluate them
                 val constants = operands.mapIndexed { index, rawLambda ->
                     when (rawLambda) {
-                        is Spec.Object -> index
+                        is Spec.Variable.External -> if (rawLambda.type.isObject)
+                            index else null
                         else -> null
                     }
                 }.filterNotNull()

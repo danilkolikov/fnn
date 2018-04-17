@@ -11,8 +11,14 @@ swap = @learn;
 @type main = Pair (Either Bool Bool) (Maybe Bool) -> Pair (Maybe Bool) (Either Bool Bool);
 main = swap;
 
-test False = True;
-test True = test False;
+test (Just False) = True;
+test (Just True) = test (Just False);
+test Nothing = False;
+
+@type test_learn = Maybe Bool -> Bool;
+test_learn (Just False) = @learn True;
+test_learn (Just True) = test_learn (@learn False);
+test_learn Nothing = @learn False;
 
 if True x y = x;
 if False x y = y;

@@ -23,12 +23,12 @@ object PyTorchWriter {
     fun writeSpecToFile(writer: FileWriter, data: Specs) {
         IndentedWriter(writer, INDENT).write {
             +"import torch"
-            +"from runtime.modules import ConstantLayer, VariableLayer, AnonymousNetLayer, ConstructorLayer, GuardedLayer, \\"
+            +"from .runtime.modules import ConstantLayer, VariableLayer, AnonymousNetLayer, ConstructorLayer, GuardedLayer, \\"
             +"    ApplicationLayer, TrainableLayer, RecursiveLayer"
-            +"from runtime.poly import TrainablePolyNet"
-            +"from runtime.data import DataPointer"
-            +"from runtime.types import TypeSpec, LitSpec, ExtSpec, ProdSpec"
-            +"from runtime.patterns import ObjectPattern, VariablePattern"
+            +"from .runtime.poly import TrainablePolyNet"
+            +"from .runtime.data import DataPointer"
+            +"from .runtime.types import TypeSpec, LitSpec, ExtSpec, ProdSpec"
+            +"from .runtime.patterns import ObjectPattern, VariablePattern"
             +""
             +""
             +"# Type Specifications"
@@ -140,7 +140,6 @@ object PyTorchWriter {
                     "'${it.key}': ${it.value}"
                 }}}")
             }
-            args.add("data_pointer=${spec.dataPointer.toPython()}")
             -"$polyName.instantiate(${args.joinToString(", ")})"
         }
         is Spec.Function.Constructor -> -"ConstructorLayer(${spec.fromTypeSize}, ${spec.toTypeSize}, ${spec.offset})"

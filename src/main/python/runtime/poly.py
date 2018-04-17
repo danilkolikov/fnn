@@ -5,23 +5,8 @@ from torch.autograd import Variable
 from torch.nn import Module, Parameter
 from torch.nn.functional import sigmoid, linear
 
-from runtime.data import DataPointer
-
-
-class TrainablePolyNetInstance(Module):
-    """
-    Instance of polymorphic network
-    """
-
-    def __init__(self, poly_net, instance, data_pointer):
-        super().__init__()
-        self.instance = instance
-        self.poly_net = poly_net
-        self.pointer = data_pointer
-        self.add_module('poly', poly_net)
-
-    def forward(self, data_bag):
-        return self.poly_net(self.instance, data_bag)
+from .data import DataPointer
+from .modules import FunctionalModule
 
 
 class TrainablePolyNet(Module):
@@ -69,11 +54,9 @@ class TrainablePolyNet(Module):
             self.biases[i].data.uniform_(-stdv, stdv)
         self.instances = []
 
-    def instantiate(self, type_params=None, data_pointer=None):
+    def instantiate(self, type_params=None):
         if type_params is None:
             type_params = {}
-        if data_pointer is None:
-            data_pointer = DataPointer.start
 
         weight, bias = self._compute_parameters(type_params)
         self.instances.append({
@@ -82,7 +65,7 @@ class TrainablePolyNet(Module):
             'bias': bias
         })
 
-        return TrainablePolyNetInstance(self, len(self.instances) - 1, data_pointer)
+        return TrainablePolyNetInstance(self, len(self.instances) - 1)
 
     def update_instances(self):
         for instance in self.instances:
@@ -134,6 +117,21 @@ class TrainablePolyNet(Module):
 
         weight = torch.cat(final_weights, 0)
         bias = torch.cat(final_biases, 0)
-        print(weight, bias)
         return weight, bias
 
+
+class TrainablePolyNetInstance(FunctionalModule):
+    """
+    Instance of polymorphic network
+    """
+
+    def __init__(self, poly_net, instance):
+        super().__init__()
+        self.instance = instance
+        self.poly_net = poly_net
+        self.pointer = DataPointer.start    # Trainable nets use only function arguments
+        self.add_module('poly', poly_net)
+
+    def forward(self, data_bag):
+        res = self.poly_net(self.instance, data_bag)
+        return res
