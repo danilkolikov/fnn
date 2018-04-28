@@ -237,8 +237,9 @@ class LambdaInferenceProcessor(
                     got.type,
                     algebraicTypes
             )
-            inferred.replaceLiterals(solution) to varScope
-                    .mapValues { (_, v) -> v.replaceLiterals(solution) }
+            val merged = mergeSubstitutions(listOf(varScope, solution), algebraicTypes)
+            val newVarScope = merged.filterKeys { variableTypes.contains(it) }
+            inferred.replaceLiterals(solution) to newVarScope
         }
         is UntypedLambda.Abstraction -> {
             val newVariableNames = arguments.map {

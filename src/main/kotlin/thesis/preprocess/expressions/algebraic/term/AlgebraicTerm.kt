@@ -32,6 +32,6 @@ sealed class AlgebraicTerm : Replaceable<AlgebraicTerm> {
 
         override fun replace(map: Map<String, AlgebraicTerm>) = Function(name, arguments.map { it.replace(map) })
 
-        override fun toString() = "$name(${arguments.joinToString(", ")}"
+        override fun toString() = "$name(${arguments.joinToString(", ")})"
     }
 }

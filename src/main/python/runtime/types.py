@@ -7,7 +7,7 @@ class BaseTypeSpec:
     """
     Base specification of type.
 
-    Type has size, start and end poisitons in structure of a bigger type,
+    Type has size, start and end positions in structure of a bigger type,
     supports iteration over values and can be transformed to a tensor that
     contains all values of type as rows
     """
@@ -37,7 +37,7 @@ class TypeSpec(BaseTypeSpec):
         self.operands = operands
 
     def calc_presence(self, data, offset=0):
-        presences = torch.cat([spec.calc_presence(data, offset) for spec in self.operands], 1)
+        presences = torch.cat([spec.calc_presence(data, spec.start + offset) for spec in self.operands], 1)
         return torch.sum(presences, 1, keepdim=True)
 
     def __iter__(self):
@@ -61,7 +61,7 @@ class LitSpec(BaseTypeSpec):
         super().__init__(start, start + 1)
 
     def calc_presence(self, data, offset=0):
-        presence = data.narrow(1, offset + self.start, 1)
+        presence = data.narrow(1, offset, 1)
 
         return presence
 
@@ -79,7 +79,7 @@ class ExtSpec(BaseTypeSpec):
         self.spec = spec
 
     def calc_presence(self, data, offset=0):
-        return self.spec.calc_presence(data, self.start + offset)
+        return self.spec.calc_presence(data, offset)
 
     def __iter__(self):
         for tensor in self.spec:
@@ -96,7 +96,7 @@ class ProdSpec(BaseTypeSpec):
         self.operands = operands
 
     def calc_presence(self, data, offset=0):
-        presences = torch.cat([spec.calc_presence(data, offset) for spec in self.operands], 1)
+        presences = torch.cat([spec.calc_presence(data, spec.start + offset) for spec in self.operands], 1)
         return torch.prod(presences, 1, keepdim=True)
 
     def __iter__(self):

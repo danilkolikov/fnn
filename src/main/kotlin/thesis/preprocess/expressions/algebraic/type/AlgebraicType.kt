@@ -155,7 +155,8 @@ class AlgebraicType(
                         return type.structure.size
                     }
 
-                override fun toString() = "(${type.name} ${arguments.joinToString(" ")}"
+                override fun toString() = if (arguments.isEmpty()) type.name
+                else "(${type.name} ${arguments.joinToString(" ")})"
             }
         }
     }
