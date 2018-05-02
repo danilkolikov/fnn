@@ -3,14 +3,10 @@ package thesis.preprocess.spec.parametrised
 import thesis.preprocess.Processor
 import thesis.preprocess.expressions.LambdaName
 import thesis.preprocess.expressions.TypeName
-import thesis.preprocess.expressions.algebraic.type.AlgebraicType
 import thesis.preprocess.expressions.lambda.typed.TypedLambda
 import thesis.preprocess.expressions.type.Type
 import thesis.preprocess.expressions.type.typeSignature
-import thesis.preprocess.results.InferredExpressions
-import thesis.preprocess.results.InstanceSignature
-import thesis.preprocess.results.Instances
-import thesis.preprocess.results.ParametrisedSpecs
+import thesis.preprocess.results.*
 import thesis.preprocess.types.UnknownExpressionError
 
 /**
@@ -23,14 +19,14 @@ class ParametrisedSpecCompiler : Processor<InferredExpressions, ParametrisedSpec
     override fun process(data: InferredExpressions): ParametrisedSpecs {
         val compiled = mutableMapOf<LambdaName, ParametrisedSpec>()
         val instances = Instances<ParametrisedSpec>()
-        val typeInstances = Instances<AlgebraicType>()
+        val typeInstances = Instances<AlgebraicTypeInstance>()
         val trainable = LinkedHashMap<InstanceSignature, MutableList<ParametrisedTrainableSpec>>()
 
         // Add constructors
         val definedTypes = mutableSetOf<TypeName>()
         data.typeDefinitions.forEach { _, type ->
-            type.constructors.forEach { name, parametrised ->
-
+            type.constructors.forEach { name, constructor ->
+                val parametrised = constructor.type
                 val spec = when (parametrised.type) {
                     is Type.Variable -> throw IllegalStateException(
                             "Variable $name should have been instantiated"
@@ -39,12 +35,14 @@ class ParametrisedSpecCompiler : Processor<InferredExpressions, ParametrisedSpec
                         ParametrisedSpec.Object(
                                 name,
                                 type,
+                                constructor.position,
                                 parametrised
                         )
                     }
                     is Type.Function -> ParametrisedSpec.Function.Constructor(
                             name,
                             type,
+                            constructor.position,
                             parametrised
                     )
                 }
@@ -261,26 +259,34 @@ class ParametrisedSpecCompiler : Processor<InferredExpressions, ParametrisedSpec
     }
 
     private fun Type.extractTypeInstances(
-            instances: Instances<AlgebraicType>
-    ) {
-        when (this) {
-            is Type.Variable -> throw IllegalStateException(
-                    "All type variables should be instantiated"
-            )
-            is Type.Function -> {
-                from.extractTypeInstances(instances)
-                to.extractTypeInstances(instances)
-            }
-            is Type.Application -> {
-                val signature = listOf(type.name)
-                val typeSignature = args.map { it.toRaw() }
-                if (instances.containsKey(signature, typeSignature)) {
-                    // We already have such type
-                    return
-                }
-                args.forEach { it.extractTypeInstances(instances) }
+            instances: Instances<AlgebraicTypeInstance>
+    ): InstanceName? = when (this) {
+        is Type.Variable -> throw IllegalStateException(
+                "All type variables should be instantiated"
+        )
+        is Type.Function -> {
+            from.extractTypeInstances(instances)
+            to.extractTypeInstances(instances)
+            null
+        }
+        is Type.Application -> {
+            val signature = this.signature
+            val typeSignature = this.typeSignature
+            val name = InstanceName(signature, typeSignature)
+            if (instances.containsKey(signature, typeSignature)) {
+                // We already have such type
+                name
+            } else {
+                // We can't have Functions in ADTs, so all operands are Applications
+                // Therefore all names will be not null
+                val names = args.map { it.extractTypeInstances(instances) }.map { it!! }
                 val typeParams = type.parameters.zip(args).toMap()
-                instances[signature, typeSignature] = type.instantiate(typeParams)
+                instances[signature, typeSignature] = AlgebraicTypeInstance(
+                        type.instantiate(typeParams),
+                        name,
+                        type.parameters.zip(names).toMap()
+                )
+                name
             }
         }
     }

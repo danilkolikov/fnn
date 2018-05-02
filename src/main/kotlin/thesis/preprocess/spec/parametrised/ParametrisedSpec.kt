@@ -51,6 +51,7 @@ sealed class ParametrisedSpec : Typed<Parametrised<Type>> {
     data class Object(
             val name: TypeName,
             val algebraicType: AlgebraicType,
+            val position: Int,
             override val type: Parametrised<Type>
     ) : ParametrisedSpec() {
 
@@ -62,6 +63,7 @@ sealed class ParametrisedSpec : Typed<Parametrised<Type>> {
         ) = Object(
                 name,
                 algebraicType,
+                position,
                 type.instantiate(typeParams)
         )
 
@@ -95,6 +97,7 @@ sealed class ParametrisedSpec : Typed<Parametrised<Type>> {
         data class Constructor(
                 val name: TypeName,
                 val algebraicType: AlgebraicType,
+                val position: Int,
                 override val type: Parametrised<Type>
         ) : Function() {
 
@@ -106,6 +109,7 @@ sealed class ParametrisedSpec : Typed<Parametrised<Type>> {
             ) = Constructor(
                     name,
                     algebraicType,
+                    position,
                     type.instantiate(typeParams)
             )
 

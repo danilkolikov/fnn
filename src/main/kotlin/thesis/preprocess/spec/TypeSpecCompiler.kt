@@ -4,6 +4,7 @@ import thesis.preprocess.Processor
 import thesis.preprocess.expressions.TypeName
 import thesis.preprocess.expressions.algebraic.type.AlgebraicType
 import thesis.preprocess.results.Instances
+import thesis.preprocess.spec.parametrised.AlgebraicTypeInstance
 
 /**
  * Compiles information about algebraic types into their in-memory representations
@@ -11,11 +12,12 @@ import thesis.preprocess.results.Instances
  * @author Danil Kolikov
  */
 class TypeSpecCompiler :
-        Processor<Instances<AlgebraicType>, Instances<TypeSpec>> {
+        Processor<Instances<AlgebraicTypeInstance>, Instances<TypeSpec>> {
 
-    override fun process(data: Instances<AlgebraicType>): Instances<TypeSpec> {
+    override fun process(data: Instances<AlgebraicTypeInstance>): Instances<TypeSpec> {
         val result = Instances<TypeSpec>()
-        data.forEach { name, typeSignature, type ->
+        data.forEach { name, typeSignature, typeInstance ->
+            val type = typeInstance.type
             val constructors = LinkedHashMap<TypeName, TypeSpec.ConstructorInfo>()
             var curOffset = 0
             val newOperands = type.structure.operands.map { operand ->
@@ -73,7 +75,7 @@ class TypeSpecCompiler :
                     is TypeSpec.Structure.SumOperand.Object -> {
                         TypeSpec.ConstructorInfo(
                                 operand.name,
-                                type.constructors[operand.name]!!.type,
+                                type.constructors[operand.name]!!.type.type,
                                 operand.start,
                                 emptyList(),
                                 spec.structure
@@ -82,7 +84,7 @@ class TypeSpecCompiler :
                     is TypeSpec.Structure.SumOperand.Product -> {
                         TypeSpec.ConstructorInfo(
                                 operand.name,
-                                type.constructors[operand.name]!!.type,
+                                type.constructors[operand.name]!!.type.type,
                                 operand.start,
                                 operand.operands,
                                 spec.structure

@@ -1,14 +1,14 @@
 package thesis.pytorch
 
+import thesis.preprocess.expressions.algebraic.type.AlgebraicType
 import thesis.preprocess.expressions.type.raw.RawType
 import thesis.preprocess.results.InstanceSignature
-import thesis.preprocess.results.Specs
 import thesis.preprocess.results.TypeSignature
-import thesis.preprocess.spec.DataPattern
+import thesis.preprocess.results.TypedSpecs
 import thesis.preprocess.spec.DataPointer
-import thesis.preprocess.spec.Spec
-import thesis.preprocess.spec.TypeSpec
 import thesis.preprocess.spec.parametrised.ParametrisedTrainableSpec
+import thesis.preprocess.spec.typed.PatternInstance
+import thesis.preprocess.spec.typed.TypedSpec
 import java.io.FileWriter
 
 /**
@@ -20,28 +20,44 @@ object PyTorchWriter {
 
     private const val INDENT = "    "
 
-    fun writeSpecToFile(writer: FileWriter, data: Specs) {
+    fun writeSpecToFile(writer: FileWriter, data: TypedSpecs) {
         IndentedWriter(writer, INDENT).write {
             +"import torch"
             +"from .runtime.modules import ConstantLayer, VariableLayer, AnonymousNetLayer, ConstructorLayer, GuardedLayer, \\"
-            +"    ApplicationLayer, TrainableLayer, RecursiveLayer"
+            +"    ApplicationLayer, RecursiveLayer"
             +"from .runtime.poly import TrainablePolyNet"
             +"from .runtime.data import DataPointer"
-            +"from .runtime.types import TypeSpec, LitSpec, ExtSpec, ProdSpec"
-            +"from .runtime.patterns import ObjectPattern, VariablePattern"
+            +"from .runtime.types import TypeSpec, LitSpec, RecSpec, VarSpec, ProdSpec"
+            +"from .runtime.patterns import VarPattern, LitPattern, ConstructorPattern"
             +""
-            +""
-            +"# Type Specifications"
-            data.typeSpecs.forEach { signature, typeSignature, spec ->
-                -"${getTypeSpecName(signature, typeSignature)} = "
-                writePython(spec)
+            if (!data.polymorphicTypes.isEmpty()) {
                 +""
-                +""
+                +"# Defined Types"
+                data.polymorphicTypes.forEach { name, type ->
+                    -"$name = "
+                    writePython(type)
+                    +""
+                    +""
+                }
             }
-            if (!data.trainable.isEmpty()) {
+            if (!data.typeInstances.isEmpty()) {
                 +""
-                +"# Poly-net specifications"
-                data.trainable.forEach { name, instances ->
+                +"# Type Instances"
+                data.typeInstances.forEach { signature, typeSignature, spec ->
+                    if (typeSignature.isEmpty()) {
+                        return@forEach
+                    }
+                    +("${getTypeSpecName(signature, typeSignature)} = ${spec.type.name}"
+                            + ".instantiate(${spec.parameters.map { (varName, typeName) ->
+                        "$varName=${getTypeSpecName(typeName.signature, typeName.typeSignature)}"
+                    }.joinToString(", ")})")
+                    +""
+                }
+            }
+            if (!data.trainableInstances.isEmpty()) {
+                +""
+                +"# Polymorphic nets specifications"
+                data.trainableInstances.forEach { name, instances ->
                     instances.forEachIndexed { index, parametrisedTrainableSpec ->
                         val arguments = parametrisedTrainableSpec.argumentsTypes.joinToString(", ") {
                             it.toPython()
@@ -57,7 +73,7 @@ object PyTorchWriter {
                 +"# Update instances - this method should be called after each backprop on net with polymorphic @learn"
                 +"def update_instances():"
                 indent {
-                    data.trainable.forEach { name, instances ->
+                    data.trainableInstances.forEach { name, instances ->
                         instances.forEachIndexed { index, _ ->
                             +"${getPolyNetName(name, index)}.update_instances()"
                         }
@@ -65,57 +81,95 @@ object PyTorchWriter {
                 }
                 +""
             }
-            +""
-            +"# Net Specifications"
-            data.instances.forEach { name, type, instance ->
-                -"${getNetworkName(name, type)} = "
-                writePython(instance)
+            if (!data.polymorphicExpressions.isEmpty()) {
                 +""
+                +"# Defined nets"
+                data.polymorphicExpressions.forEach { name, type, instance ->
+                    -"${getNetworkName(name, type)} = "
+                    writePython(instance)
+                    +""
+                    +""
+                }
+                +""
+            }
+            if (!data.expressionInstances.isEmpty()) {
+                +"# Net instances"
+                data.expressionInstances.forEach { name, type, instance ->
+                    +"${getNetworkName(name, type)} = ${getNetworkName(
+                            instance.polymorphicName.signature,
+                            instance.polymorphicName.typeSignature
+                    )}.instantiate(${instance.parameters.map { (varName, typeName) ->
+                        "$varName=${getTypeSpecName(typeName.signature, typeName.typeSignature)}"
+                    }.joinToString(", ")})"
+                    +""
+                }
                 +""
             }
         }
     }
 
-    private fun IndentedWriter.writePython(spec: TypeSpec): IndentedWriter {
+    private fun IndentedWriter.writePython(spec: AlgebraicType): IndentedWriter {
+        if (spec.recursive) {
+            +"RecSpec("
+            indent {
+                +"definition=lambda ${spec.name}: "
+                indent {
+                writeNotRecursive(spec)
+                }
+                +""
+            }
+            -")"
+        } else {
+            writeNotRecursive(spec)
+        }
+        return this
+    }
+
+    private fun IndentedWriter.writeNotRecursive(spec: AlgebraicType): IndentedWriter {
         +"TypeSpec(operands=["
         indent {
             spec.structure.operands.forEach { operand ->
                 when (operand) {
-                    is TypeSpec.Structure.SumOperand.Object -> -"LitSpec(${operand.start})"
-                    is TypeSpec.Structure.SumOperand.Product -> {
+                    is AlgebraicType.Structure.SumOperand.Object -> +"LitSpec(),"
+                    is AlgebraicType.Structure.SumOperand.Product -> {
                         +"ProdSpec(operands=["
                         indent {
-                            var curOffset = 0
                             operand.operands.forEach {
-                                -"ExtSpec(${getTypeSpecName(it.signature, it.typeSignature)}, start=$curOffset)"
-                                appendLnWithoutIndent(",")
-                                curOffset += it.structure.size
+                                when (it) {
+                                    is AlgebraicType.Structure.ProductOperand.Variable -> {
+                                        +"VarSpec('${it.name}'),"
+                                    }
+                                    is AlgebraicType.Structure.ProductOperand.Application -> {
+                                        val name = getTypeSpecName(it.type.signature, it.arguments.map { it.toRaw() })
+                                        +"$name,"
+                                    }
+                                }
                             }
                         }
-                        -"], start=${operand.start})"
+                        +"]),"
                     }
                 }
-                appendLnWithoutIndent(",")
             }
         }
         -"])"
         return this
     }
 
-    private fun IndentedWriter.writePython(spec: Spec): IndentedWriter = when (spec) {
-        is Spec.Object -> {
-            -"ConstantLayer(size=${spec.size}, position=${spec.position})"
+    private fun IndentedWriter.writePython(spec: TypedSpec): IndentedWriter = when (spec) {
+        is TypedSpec.Object -> {
+            val typeName = getTypeSpecName(spec.toType.signature, spec.toType.typeSignature)
+            -"ConstantLayer(type_spec=$typeName, position=${spec.position})"
         }
-        is Spec.Variable.Object -> {
-            -"VariableLayer.Data(${spec.positions.first}, ${spec.positions.second})"
+        is TypedSpec.Variable.Object -> {
+            -"VariableLayer.Data(${spec.position})"
         }
-        is Spec.Variable.Function -> {
+        is TypedSpec.Variable.Function -> {
             -"VariableLayer.Net(${spec.position})"
         }
-        is Spec.Variable.External -> {
+        is TypedSpec.Variable.External -> {
             -"VariableLayer.External(${getNetworkName(spec.signature, spec.typeSignature)})"
         }
-        is Spec.Function.Anonymous -> {
+        is TypedSpec.Function.Anonymous -> {
             +"AnonymousNetLayer("
             indent {
                 writePython(spec.body)
@@ -124,7 +178,7 @@ object PyTorchWriter {
             }
             -")"
         }
-        is Spec.Function.Recursive -> {
+        is TypedSpec.Function.Recursive -> {
             +"RecursiveLayer("
             indent {
                 writePython(spec.body)
@@ -132,7 +186,7 @@ object PyTorchWriter {
             }
             -")"
         }
-        is Spec.Function.Trainable -> {
+        is TypedSpec.Function.Trainable -> {
             val polyName = getPolyNetName(spec.instanceSignature, spec.instancePosition)
             val args = mutableListOf<String>()
             if (!spec.typeParamsSize.isEmpty()) {
@@ -142,9 +196,13 @@ object PyTorchWriter {
             }
             -"$polyName.instantiate(${args.joinToString(", ")})"
         }
-        is Spec.Function.Constructor -> -"ConstructorLayer(${spec.fromTypeSize}, ${spec.toTypeSize}, ${spec.offset})"
-        is Spec.Function.Guarded -> {
-            +"GuardedLayer(cases=["
+        is TypedSpec.Function.Constructor -> {
+            val toType = getTypeSpecName(spec.toType.signature, spec.toType.typeSignature)
+            -"ConstructorLayer(to_type=$toType, position=${spec.position})"
+        }
+        is TypedSpec.Function.Guarded -> {
+            val toType = getTypeSpecName(spec.toType.signature, spec.toType.typeSignature)
+            +"GuardedLayer(to_type=$toType, cases=["
             indent {
                 spec.cases.forEach {
                     writePython(it)
@@ -153,7 +211,7 @@ object PyTorchWriter {
             }
             -"])"
         }
-        is Spec.Application -> {
+        is TypedSpec.Application -> {
             +"ApplicationLayer("
             indent {
                 +"operands=["
@@ -182,43 +240,43 @@ object PyTorchWriter {
         }
     }
 
-    private fun IndentedWriter.writePython(case: Spec.Function.Guarded.Case): IndentedWriter = write {
+    private fun IndentedWriter.writePython(case: TypedSpec.Function.Guarded.Case): IndentedWriter = write {
         +"GuardedLayer.Case("
         indent {
-            if (case.patterns.isEmpty()) {
-                +"[],"
-            } else {
-                +"["
-                indent {
-                    case.patterns.forEach {
-                        writePython(it)
-                        appendLnWithoutIndent(",")
-                    }
-                }
-                +"],"
-            }
+            writePython(case.pattern)
+            appendLnWithoutIndent(", ")
             writePython(case.body)
             +""
         }
         -")"
     }
 
-    private fun IndentedWriter.writePython(pattern: DataPattern): IndentedWriter = when (pattern) {
-        is DataPattern.Object -> -"ObjectPattern(\"${pattern.name}\", ${pattern.position})"
-        is DataPattern.Variable -> -("VariablePattern(\"${pattern.name}\", " +
-                "${getTypeSpecName(pattern.signature, pattern.typeSignature)}, " +
-                "${pattern.start}, ${pattern.end})")
+    private fun IndentedWriter.writePython(pattern: PatternInstance): IndentedWriter = when (pattern) {
+        is PatternInstance.Literal -> -"LitPattern(${pattern.position})"
+        is PatternInstance.Variable -> -"VarPattern()"
+        is PatternInstance.Constructor -> {
+            +"ConstructorPattern(${pattern.position}, operands=["
+            indent {
+                pattern.operands.forEach {
+                    writePython(it)
+                    appendLnWithoutIndent(",")
+                }
+            }
+            -"])"
+        }
     }
 
     private fun getTypeSpecName(
             instanceSignature: InstanceSignature,
             signature: TypeSignature
-    ) = (instanceSignature + signature.map { it.toPython() }).joinToString("_")
+    ) = (instanceSignature + signature.map { it.toPython() }.filterNot { it.isEmpty() })
+            .joinToString("_")
 
     private fun getNetworkName(
             instanceSignature: InstanceSignature,
             typeSignature: TypeSignature
-    ) = "${(instanceSignature + typeSignature.map { it.toPython() }).joinToString("_")}_net"
+    ) = "${(instanceSignature + typeSignature.map { it.toPython() }.filterNot { it.isEmpty() })
+            .joinToString("_")}_net"
 
     private fun getPolyNetName(
             instanceSignature: InstanceSignature,
@@ -227,7 +285,7 @@ object PyTorchWriter {
 
     private fun RawType.toPython(): String = when (this) {
         is RawType.Literal -> name
-        is RawType.Variable -> throw IllegalStateException("Variable $name is not instantiated")
+        is RawType.Variable -> ""
         is RawType.Function -> "_${from.toPython()}_to_${to.toPython()}_"
         is RawType.Application -> if (args.isEmpty()) name else
             "_${(listOf(name) + args.map { it.toPython() }).joinToString("_")}_"

@@ -21,7 +21,23 @@ class AlgebraicTypeInferenceProcessor :
     ): LinkedHashMap<TypeName, AlgebraicType> {
         val result = LinkedHashMap<TypeName, AlgebraicType>()
         data.forEach { (name, type) ->
-            val newOperands = type.structure.operands.map { operand ->
+            // Add type to result before inferring of it's structure to support recursive types
+
+            val kind = Kind.createBasic(type.parameters.size)
+            val newOperands = mutableListOf<AlgebraicType.Structure.SumOperand>()
+            val constructors = LinkedHashMap<TypeName, AlgebraicType.Constructor>()
+            val resultType = AlgebraicType(
+                    name,
+                    type.parameters,
+                    kind,
+                    AlgebraicType.Structure(newOperands),
+                    type.structure.operands.any { it.containsType(name) },
+                    constructors
+            )
+            result[name] = resultType
+
+            // Infer type structure
+            type.structure.operands.map { operand ->
                 when (operand) {
                     is RawAlgebraicType.Structure.SumOperand.Literal -> AlgebraicType.Structure.SumOperand.Object(
                             operand.name
@@ -31,17 +47,10 @@ class AlgebraicTypeInferenceProcessor :
                             operand.operands.map { it.toAlgebraicType(result) }
                     )
                 }
-            }
+            }.forEach { newOperands.add(it) }
 
-            val kind = Kind.createBasic(type.parameters.size)
-            val constructors = LinkedHashMap<TypeName, Parametrised<Type>>()
-            val resultType = AlgebraicType(
-                    name,
-                    type.parameters,
-                    kind,
-                    AlgebraicType.Structure(newOperands),
-                    constructors
-            )
+            // Infer type constructors
+            var curConstructor = 0
             newOperands.forEach { operand ->
                 val constructorName = operand.name
                 val resType = Type.Application(resultType, resultType.parameters.map { Type.Variable(it) })
@@ -53,13 +62,16 @@ class AlgebraicTypeInferenceProcessor :
                                     { arg, res -> Type.Function(arg.toType(), res) }
                             )
                 }
-                constructors[constructorName] = Parametrised(
+                val parametrised = Parametrised(
                         type.parameters,
                         constructorType,
                         type.parameters.map { it to Type.Variable(it) }.toMap()
                 )
+                constructors[constructorName] = AlgebraicType.Constructor(
+                        parametrised,
+                        curConstructor++
+                )
             }
-            result[name] = resultType
         }
         return result
     }

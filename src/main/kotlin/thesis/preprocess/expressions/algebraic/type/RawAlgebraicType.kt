@@ -26,10 +26,14 @@ data class RawAlgebraicType(
 
             abstract val name: TypeName
 
+            abstract fun containsType(typeName: TypeName): Boolean
+
             data class Literal(
                     override val name: TypeName
             ) : SumOperand() {
                 override fun toString() = name
+
+                override fun containsType(typeName: TypeName) = false
             }
 
             data class Product(
@@ -37,6 +41,8 @@ data class RawAlgebraicType(
                     val operands: List<ProductOperand>
             ) : SumOperand() {
                 override fun toString() = "$name ${operands.joinToString(" ")}"
+
+                override fun containsType(typeName: TypeName) = operands.any { it.containsType(typeName) }
             }
         }
 
@@ -44,10 +50,14 @@ data class RawAlgebraicType(
 
             abstract val name: String
 
+            abstract fun containsType(typeName: TypeName): Boolean
+
             data class Variable(
                     override val name: String
             ) : ProductOperand() {
                 override fun toString() = name
+
+                override fun containsType(typeName: TypeName) = false
             }
 
             data class Application(
@@ -55,6 +65,9 @@ data class RawAlgebraicType(
                     val arguments: List<ProductOperand>
             ) : ProductOperand() {
                 override fun toString() = "($name ${arguments.joinToString(" ")}"
+
+                override fun containsType(typeName: TypeName) = name == typeName ||
+                        arguments.any { it.containsType(typeName )}
             }
         }
     }

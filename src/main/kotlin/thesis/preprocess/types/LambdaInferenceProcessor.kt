@@ -37,7 +37,7 @@ class LambdaInferenceProcessor(
         val algebraicTypes = typeScope.keys
         val scope = typeScope
                 .flatMap { (_, type) -> type.constructors.entries }
-                .map { (name, type) -> name to type.modifyType { it.toRaw() } }
+                .map { (name, constructor) -> name to constructor.type.modifyType { it.toRaw() } }
                 .toMap().toMutableMap()
 
         data.forEach { (name, expressions) ->

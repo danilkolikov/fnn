@@ -6,6 +6,8 @@ import thesis.preprocess.expressions.TypeName
 import thesis.preprocess.expressions.TypeVariableName
 import thesis.preprocess.expressions.algebraic.type.AlgebraicType
 import thesis.preprocess.expressions.type.raw.RawType
+import thesis.preprocess.results.InstanceSignature
+import thesis.preprocess.results.TypeSignature
 
 /**
  * Inferred type - has references to algebraic types
@@ -39,6 +41,12 @@ sealed class Type : Expression, Implication<Type>, Replaceable<Type> {
     }
 
     data class Application(val type: AlgebraicType, val args: List<Type>) : Type() {
+
+        val signature: InstanceSignature
+            get() = type.signature
+
+        val typeSignature: TypeSignature
+            get() = args.map { it.toRaw() }
 
         override fun toString() = if (args.isEmpty()) type.name else
             "(${type.name} ${args.joinToString(" ")})"

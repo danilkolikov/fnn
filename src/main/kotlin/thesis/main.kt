@@ -8,6 +8,7 @@ import thesis.preprocess.ast.ExpressionSorter
 import thesis.preprocess.ast.ReaderParser
 import thesis.preprocess.spec.SpecCompiler
 import thesis.preprocess.spec.parametrised.ParametrisedSpecCompiler
+import thesis.preprocess.spec.typed.TypedSpecCompiler
 import thesis.preprocess.types.TypeInferenceProcessor
 import thesis.pytorch.PyTorchWriter
 import thesis.utils.NameGenerator
@@ -33,7 +34,7 @@ fun main(args: Array<String>) = mainBody {
                 val parametrisedSpec = ParametrisedSpecCompiler().process(inferred)
                 printer.print(parametrisedSpec)
 
-                val specs = SpecCompiler().process(parametrisedSpec)
+                val specs = TypedSpecCompiler().process(parametrisedSpec)
 
                 when (mode) {
                     CompilerMode.COMPILE -> {
@@ -48,10 +49,11 @@ fun main(args: Array<String>) = mainBody {
                         }
                     }
                     CompilerMode.EXECUTE -> {
-                        val compiled = EvalSpecCompiler().process(specs)
-                        compiled[listOf("main"), emptyList()]?.eval(DataBag.EMPTY)?.let {
-                            println(it)
-                        }
+                        TODO("Support EXECUTE")
+//                        val compiled = EvalSpecCompiler().process(specs)
+//                        compiled[listOf("main"), emptyList()]?.eval(DataBag.EMPTY)?.let {
+//                            println(it)
+//                        }
                     }
                 }
             }

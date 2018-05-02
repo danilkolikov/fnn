@@ -16,7 +16,8 @@ class AlgebraicType(
         val parameters: List<TypeVariableName>,
         val kind: Kind,
         val structure: Structure,
-        val constructors: LinkedHashMap<TypeName, Parametrised<Type>>
+        val recursive: Boolean,
+        val constructors: LinkedHashMap<TypeName, Constructor>
 ) {
 
     fun instantiate(map: Map<TypeVariableName, Type>): AlgebraicType {
@@ -25,12 +26,13 @@ class AlgebraicType(
         val variables = replacedStructure.getVariables()
         val kind = Kind.createBasic(variables.size)
         val newConstructors = constructors
-                .mapValuesTo(LinkedHashMap()) { (_, v) -> v.instantiate(map) }
+                .mapValuesTo(LinkedHashMap()) { (_, v) -> Constructor(v.type.instantiate(map), v.position) }
         return AlgebraicType(
                 name,
                 variables.toList(),
                 kind,
                 replacedStructure,
+                recursive,
                 newConstructors
         )
     }
@@ -39,6 +41,11 @@ class AlgebraicType(
         get() = listOf(name)
 
     override fun toString() = "$name ${parameters.joinToString(" ")} = $structure"
+
+    data class Constructor(
+            val type: Parametrised<Type>,
+            val position: Int
+    )
 
     data class Structure(
             val operands: List<SumOperand>

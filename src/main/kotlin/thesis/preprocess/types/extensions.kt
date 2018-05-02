@@ -49,9 +49,9 @@ fun mergeSubstitutions(
     }
     val result = mutableMapOf<String, RawType>()
     val equations = intersection.map { (variable, list) ->
+        result[variable] = list.first()
         if (list.size == 1) {
             // Expression appears once - can add to result without unification
-            result[variable] = list.first()
             emptyList()
         } else {
             // The same expression appears in many substitutions - have to unify
