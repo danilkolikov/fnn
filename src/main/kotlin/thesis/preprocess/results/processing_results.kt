@@ -17,12 +17,11 @@ import thesis.preprocess.expressions.lambda.untyped.UntypedPattern
 import thesis.preprocess.expressions.type.Parametrised
 import thesis.preprocess.expressions.type.Type
 import thesis.preprocess.expressions.type.raw.RawType
-import thesis.preprocess.spec.parametrised.AlgebraicTypeInstance
-import thesis.preprocess.spec.parametrised.ParametrisedSpec
-import thesis.preprocess.spec.parametrised.ParametrisedTrainableSpec
 import thesis.preprocess.spec.Spec
 import thesis.preprocess.spec.TypeSpec
-import thesis.preprocess.spec.typed.ExpressionInstance
+import thesis.preprocess.spec.parametrised.ParametrisedSpec
+import thesis.preprocess.spec.parametrised.ParametrisedTrainableSpec
+import thesis.preprocess.spec.parametrised.Polymorphic
 import thesis.preprocess.spec.typed.TypedSpec
 
 typealias UntypedLambdaWithPatterns = LambdaWithPatterns<UntypedLambda, UntypedPattern>
@@ -64,14 +63,6 @@ data class InferredExpressions(
         val lambdaDefinitions: LinkedHashMap<LambdaName, InferredLambda>
 )
 
-typealias InstanceSignature = List<LambdaName>
-
-typealias TypeSignature = List<RawType>
-
-data class InstanceName(
-        val signature: InstanceSignature,
-        val typeSignature: TypeSignature
-)
 
 /**
  * Specification of program. Basically, it's the set of instances of lambda expressions, types and
@@ -80,9 +71,8 @@ data class InstanceName(
  * @author Danil Kolikov
  */
 data class ParametrisedSpecs(
-        val typeDefinitions: LinkedHashMap<TypeName, AlgebraicType>,
-        val typeInstances: Instances<AlgebraicTypeInstance>,
-        val instances: Instances<ParametrisedSpec>,
+        val types: Instances<Polymorphic<AlgebraicType>>,
+        val expressions: Instances<Polymorphic<ParametrisedSpec>>,
         val trainable: LinkedHashMap<InstanceSignature, List<ParametrisedTrainableSpec>>
 )
 
@@ -103,9 +93,7 @@ data class Specs(
  * Specification of a program that can be compiled to PyTorch.
  */
 data class TypedSpecs(
-        val polymorphicTypes: LinkedHashMap<TypeName, AlgebraicType>,
-        val typeInstances: Instances<AlgebraicTypeInstance>,
-        val polymorphicExpressions: Instances<TypedSpec>,
-        val expressionInstances: Instances<ExpressionInstance>,
+        val types: Instances<Polymorphic<AlgebraicType>>,
+        val expressions: Instances<Polymorphic<TypedSpec>>,
         val trainableInstances: LinkedHashMap<InstanceSignature, List<ParametrisedTrainableSpec>>
 )

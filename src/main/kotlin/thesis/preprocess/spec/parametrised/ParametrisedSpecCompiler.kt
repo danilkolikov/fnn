@@ -3,6 +3,7 @@ package thesis.preprocess.spec.parametrised
 import thesis.preprocess.Processor
 import thesis.preprocess.expressions.LambdaName
 import thesis.preprocess.expressions.TypeName
+import thesis.preprocess.expressions.algebraic.type.AlgebraicType
 import thesis.preprocess.expressions.lambda.typed.TypedLambda
 import thesis.preprocess.expressions.type.Type
 import thesis.preprocess.expressions.type.typeSignature
@@ -18,8 +19,8 @@ class ParametrisedSpecCompiler : Processor<InferredExpressions, ParametrisedSpec
 
     override fun process(data: InferredExpressions): ParametrisedSpecs {
         val compiled = mutableMapOf<LambdaName, ParametrisedSpec>()
-        val instances = Instances<ParametrisedSpec>()
-        val typeInstances = Instances<AlgebraicTypeInstance>()
+        val instances = Instances<Polymorphic<ParametrisedSpec>>()
+
         val trainable = LinkedHashMap<InstanceSignature, MutableList<ParametrisedTrainableSpec>>()
 
         // Add constructors
@@ -46,7 +47,11 @@ class ParametrisedSpecCompiler : Processor<InferredExpressions, ParametrisedSpec
                             parametrised
                     )
                 }
-                instances.putIfAbsent(spec.instancePath, listOf(), spec)
+                val polymorphic = Polymorphic.Base(
+                        spec,
+                        InstanceName(listOf(name), type.typeSignature)
+                )
+                instances.putIfAbsent(polymorphic.name, polymorphic)
                 compiled[name] = spec
             }
             definedTypes.add(type.name)
@@ -100,26 +105,26 @@ class ParametrisedSpecCompiler : Processor<InferredExpressions, ParametrisedSpec
             val result = if (lambda.isRecursive) ParametrisedSpec.Function.Recursive(
                     name,
                     guarded,
-                    emptyList(),
+                    listOf(name),
                     lambda.type
             ) else guarded
-            instances.putIfAbsent(guarded.instancePath, emptyList(), result)
-            compiled[name] = guarded
+            val polymorphic = Polymorphic.Base<ParametrisedSpec>(
+                    result,
+                    InstanceName(guarded.instancePath, guarded.type.typeSignature())
+            )
+            instances.putIfAbsent(polymorphic.name, polymorphic)
+            compiled[name] = result
         }
 
         // Add type instances
+        val typeInstances = Instances<Polymorphic<AlgebraicType>>()
         instances.forEach { _, _, spec ->
-            if (!spec.isInstantiated()) {
-                return@forEach
-            }
-            // Extract types only from instantiated specs
-            spec.type.modifyType {
+            spec.item.type.modifyType {
                 it.extractTypeInstances(typeInstances)
                 it
             }
         }
         return ParametrisedSpecs(
-                data.typeDefinitions,
                 typeInstances,
                 instances,
                 trainable.mapValuesTo(LinkedHashMap()) { (_, v) -> v.toList() }
@@ -130,7 +135,7 @@ class ParametrisedSpecCompiler : Processor<InferredExpressions, ParametrisedSpec
             variables: Map<LambdaName, ParametrisedSpec.Variable>,
             compiled: Map<LambdaName, ParametrisedSpec>,
             instancePath: List<LambdaName>,
-            instances: Instances<ParametrisedSpec>,
+            instances: Instances<Polymorphic<ParametrisedSpec>>,
             trainable: LinkedHashMap<InstanceSignature, MutableList<ParametrisedTrainableSpec>>
     ): ParametrisedSpec = when (this) {
         is TypedLambda.Trainable -> {
@@ -150,10 +155,14 @@ class ParametrisedSpecCompiler : Processor<InferredExpressions, ParametrisedSpec
             val defined = compiled[name]?.let {
                 if (type.initialParameters.isEmpty()) {
                     // Type has no type params, no need to instantiate
-                    instances.putIfAbsent(it.instancePath, emptyList(), it)
+                    val polymorphic = Polymorphic.Base(
+                            it,
+                            InstanceName(listOf(name), emptyList())
+                    )
+                    instances.putIfAbsent(polymorphic.name, polymorphic)
                     ParametrisedSpec.Function.Polymorphic(
                             name,
-                            it,
+                            polymorphic,
                             emptyMap(),
                             it.instancePath,
                             emptyList(),
@@ -165,9 +174,25 @@ class ParametrisedSpecCompiler : Processor<InferredExpressions, ParametrisedSpec
                     val typeParams = type.typeParams
                     val signature = it.instancePath
                     val typeSignature = type.typeSignature()
-                    val instance = instances[signature, typeSignature] ?: it.instantiate(
-                            typeParams,
-                            instances
+
+                    val baseName = InstanceName(signature, type.initialParameters.map { TypeSig.Variable(it) })
+                    var base = instances[baseName]
+                    if (base == null) {
+                        // Should save instance
+                        base = Polymorphic.Base(
+                                it,
+                                baseName
+                        )
+                        instances[baseName] = base
+                    }
+                    val instance = instances[signature, typeSignature] ?: Polymorphic.Instance(
+                            it.instantiate(
+                                    typeParams,
+                                    instances
+                            ),
+                            base,
+                            InstanceName(signature, typeSignature),
+                            typeParams.mapValues { (_, v) -> v.toSignature() }
                     )
                     instances.putIfAbsent(signature, typeSignature, instance)
 
@@ -178,7 +203,7 @@ class ParametrisedSpecCompiler : Processor<InferredExpressions, ParametrisedSpec
                             signature,
                             typeSignature,
                             instancePath,
-                            instance.type
+                            instance.item.type
                     )
                 }
             }
@@ -259,15 +284,13 @@ class ParametrisedSpecCompiler : Processor<InferredExpressions, ParametrisedSpec
     }
 
     private fun Type.extractTypeInstances(
-            instances: Instances<AlgebraicTypeInstance>
-    ): InstanceName? = when (this) {
-        is Type.Variable -> throw IllegalStateException(
-                "All type variables should be instantiated"
-        )
+            instances: Instances<Polymorphic<AlgebraicType>>
+    ): TypeSig = when (this) {
+        is Type.Variable -> TypeSig.Variable(name)
         is Type.Function -> {
-            from.extractTypeInstances(instances)
-            to.extractTypeInstances(instances)
-            null
+            val fromSig = from.extractTypeInstances(instances)
+            val toSig = to.extractTypeInstances(instances)
+            TypeSig.Function(fromSig, toSig)
         }
         is Type.Application -> {
             val signature = this.signature
@@ -275,18 +298,29 @@ class ParametrisedSpecCompiler : Processor<InferredExpressions, ParametrisedSpec
             val name = InstanceName(signature, typeSignature)
             if (instances.containsKey(signature, typeSignature)) {
                 // We already have such type
-                name
+                TypeSig.Application(name)
             } else {
-                // We can't have Functions in ADTs, so all operands are Applications
-                // Therefore all names will be not null
-                val names = args.map { it.extractTypeInstances(instances) }.map { it!! }
+                // Find the base instance
+                val names = args.map { it.extractTypeInstances(instances) }
                 val typeParams = type.parameters.zip(args).toMap()
-                instances[signature, typeSignature] = AlgebraicTypeInstance(
+
+                val baseName = InstanceName(type.signature, type.typeSignature)
+                var base = instances[baseName]
+                if (base == null) {
+                    // No base class - add it
+                    base = Polymorphic.Base(
+                            type,
+                            baseName
+                    )
+                    instances[baseName] = base
+                }
+                instances.putIfAbsent(signature, typeSignature, Polymorphic.Instance(
                         type.instantiate(typeParams),
+                        base,
                         name,
                         type.parameters.zip(names).toMap()
-                )
-                name
+                ))
+                TypeSig.Application(name)
             }
         }
     }

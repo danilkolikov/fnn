@@ -7,9 +7,11 @@ import thesis.preprocess.expressions.Typed
 import thesis.preprocess.expressions.type.Type
 import thesis.preprocess.results.InstanceName
 import thesis.preprocess.results.InstanceSignature
+import thesis.preprocess.results.TypeSig
 import thesis.preprocess.results.TypeSignature
 import thesis.preprocess.spec.DataPointer
 import thesis.preprocess.spec.parametrised.ParametrisedTrainableSpec
+import thesis.preprocess.spec.parametrised.Polymorphic
 
 
 /**
@@ -42,7 +44,7 @@ sealed class TypedSpec : Typed<Type> {
                 val signature: InstanceSignature,
                 val typeSignature: TypeSignature,
                 override val type: Type,
-                val function: TypedSpec
+                val function: Polymorphic<TypedSpec>
         ) : TypedSpec.Variable()
     }
 
@@ -87,7 +89,7 @@ sealed class TypedSpec : Typed<Type> {
         data class Guarded(
                 val name: LambdaName,
                 override val type: Type,
-                val toType: InstanceName,
+                val toType: TypeSig,
                 val cases: List<Case>
         ) : Function() {
 

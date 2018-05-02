@@ -37,7 +37,7 @@ class ConsolePrettyPrinter : PrettyPrinter {
                         |        Definition: $type
                         |        Constructors:
                         ${type.constructors.entries.joinToString("\n") {
-                            "|            ${it.key} : ${it.value}"
+                            "|            ${it.key} : ${it.value.type}"
                         }}
                         """.trimMargin("|")
                 )
@@ -54,21 +54,18 @@ class ConsolePrettyPrinter : PrettyPrinter {
     }
 
     override fun print(parametrisedSpecs: ParametrisedSpecs) {
-        if (!parametrisedSpecs.typeInstances.isEmpty()) {
+        if (!parametrisedSpecs.types.isEmpty()) {
             println("Type Instances: ")
-            parametrisedSpecs.typeInstances.forEach { _, params, type ->
-                val typeName = if (params.isEmpty()) type.name else "${type.name} ${params.joinToString(" ")}"
+            parametrisedSpecs.types.forEach { _, params, type ->
+                val typeName = if (params.isEmpty()) type.item.name else "${type.item.name} ${params.joinToString(" ")}"
                 println("    $typeName")
             }
             println()
         }
-        if (!parametrisedSpecs.instances.isEmpty()) {
+        if (!parametrisedSpecs.expressions.isEmpty()) {
             println("Expression instances: ")
-            parametrisedSpecs.instances.forEach { names, _, expression ->
-                if (!expression.isInstantiated()) {
-                    return@forEach
-                }
-                val name = "${names.joinToString("→")} : ${expression.type}"
+            parametrisedSpecs.expressions.forEach { names, _, expression ->
+                val name = "${names.joinToString("→")} : ${expression.item.type}"
                 println("    $name")
             }
             println()

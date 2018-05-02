@@ -6,17 +6,12 @@ import thesis.preprocess.expressions.algebraic.type.AlgebraicType
 import thesis.preprocess.expressions.lambda.typed.TypedPattern
 import thesis.preprocess.expressions.type.Parametrised
 import thesis.preprocess.expressions.type.Type
-import thesis.preprocess.results.InstanceName
-import thesis.preprocess.results.Instances
-import thesis.preprocess.results.ParametrisedSpecs
-import thesis.preprocess.results.TypedSpecs
-import thesis.preprocess.spec.DataPattern
+import thesis.preprocess.results.*
 import thesis.preprocess.spec.DataPointer
 import thesis.preprocess.spec.ParametrizedPattern
-import thesis.preprocess.spec.parametrised.AlgebraicTypeInstance
 import thesis.preprocess.spec.parametrised.ParametrisedSpec
+import thesis.preprocess.spec.parametrised.Polymorphic
 import thesis.preprocess.types.UnknownExpressionError
-import thesis.preprocess.types.UnknownTypeError
 import thesis.preprocess.types.UnsupportedTrainableType
 
 /**
@@ -27,34 +22,31 @@ import thesis.preprocess.types.UnsupportedTrainableType
 class TypedSpecCompiler : Processor<ParametrisedSpecs, TypedSpecs> {
 
     override fun process(data: ParametrisedSpecs): TypedSpecs {
-        val polymorphicExpressions = Instances<TypedSpec>()
-        val expressionInstances = Instances<ExpressionInstance>()
+        val expressionInstances = Instances<Polymorphic<TypedSpec>>()
 
-        val parametrisedInstances = Instances<ParametrisedSpec>()
-
-        data.instances.forEach { signature, type, spec ->
-            if (signature.size > 1) {
-                // Will be instantiated later
-                return@forEach
-            }
-            if (spec.isInstantiated()) {
-                val instantiated = spec.instantiate(
+        data.expressions.forEach { signature, type, spec ->
+            if (!expressionInstances.containsKey(signature, type)) {
+                val instantiated = spec.item.instantiate(
                         emptyMap(),
-                        polymorphicExpressions,
-                        data.instances,
-                        data.typeInstances,
+                        expressionInstances,
+                        data.types,
                         DataPointer(0, 0)
                 )
-                polymorphicExpressions[signature, type] = instantiated
-            } else {
-                parametrisedInstances[signature, type] = spec
+                val polymorphic = when (spec) {
+                    is Polymorphic.Base -> Polymorphic.Base(instantiated, spec.name)
+                    is Polymorphic.Instance -> Polymorphic.Instance(
+                            instantiated,
+                            expressionInstances[spec.base.name]!!,
+                            spec.name,
+                            spec.parameters
+                    )
+                }
+                expressionInstances[signature, type] = polymorphic
             }
         }
 
         return TypedSpecs(
-                data.typeDefinitions,
-                data.typeInstances,
-                polymorphicExpressions,
+                data.types,
                 expressionInstances,
                 data.trainable
         )
@@ -62,9 +54,8 @@ class TypedSpecCompiler : Processor<ParametrisedSpecs, TypedSpecs> {
 
     private fun ParametrisedSpec.instantiate(
             variables: Map<LambdaName, TypedSpec.Variable>,
-            instances: Instances<TypedSpec>,
-            parametrisedInstances: Instances<ParametrisedSpec>,
-            typeSpecs: Instances<AlgebraicTypeInstance>,
+            instances: Instances<Polymorphic<TypedSpec>>,
+            typeSpecs: Instances<Polymorphic<AlgebraicType>>,
             dataPointer: DataPointer
     ): TypedSpec {
         val typeInstance = type.type   // Assuming that it's fully instantiated
@@ -99,7 +90,7 @@ class TypedSpecCompiler : Processor<ParametrisedSpecs, TypedSpecs> {
                         is Type.Variable -> throw IllegalStateException("Type should be instantiated")
                         is Type.Function -> throw IllegalStateException("Instantiation by functions is unsupported")
                         is Type.Application -> {
-                            val typeSignature = v.args.map { it.toRaw() }
+                            val typeSignature = v.args.map { it.toSignature() }
                             val instance = typeSpecs[v.type.signature, typeSignature] ?: throw IllegalStateException(
                                     "Type ${v.type.name} with arguments $typeSignature " +
                                             "is not instantiated"
@@ -141,7 +132,6 @@ class TypedSpecCompiler : Processor<ParametrisedSpecs, TypedSpecs> {
                         body.instantiate(
                                 variables + newVariables,
                                 instances,
-                                parametrisedInstances,
                                 typeSpecs,
                                 DataPointer(thisOffset, functionsCounter)
                         ),
@@ -158,7 +148,6 @@ class TypedSpecCompiler : Processor<ParametrisedSpecs, TypedSpecs> {
                         body.instantiate(
                                 newVariables,
                                 instances,
-                                parametrisedInstances,
                                 typeSpecs,
                                 DataPointer(dataPointer.dataOffset, functionsCount)
                         ),
@@ -166,24 +155,7 @@ class TypedSpecCompiler : Processor<ParametrisedSpecs, TypedSpecs> {
                         dataPointer
                 )
             }
-            is ParametrisedSpec.LetAbstraction -> {
-                bindings.forEach { name ->
-                    val signature = instancePath + listOf(name)
-                    parametrisedInstances.getInstances(signature).forEach { type, instance ->
-                        if (instance.isInstantiated()) {
-                            val instantiated = instance.instantiate(
-                                    variables,
-                                    instances,
-                                    parametrisedInstances,
-                                    typeSpecs,
-                                    dataPointer
-                            )
-                            instances[signature, type] = instantiated
-                        }
-                    }
-                }
-                expression.instantiate(variables, instances, parametrisedInstances, typeSpecs, dataPointer)
-            }
+            is ParametrisedSpec.LetAbstraction -> expression.instantiate(variables, instances, typeSpecs, dataPointer)
             is ParametrisedSpec.Function.Polymorphic -> {
                 val instance = instances[signature, typeSignature] ?: throw IllegalStateException(
                         "Expression with signature $signature $typeSignature wasn't instantiated"
@@ -197,7 +169,7 @@ class TypedSpecCompiler : Processor<ParametrisedSpecs, TypedSpecs> {
             }
             is ParametrisedSpec.Application -> {
                 val operands = operands.map {
-                    it.instantiate(variables, instances, parametrisedInstances, typeSpecs, dataPointer)
+                    it.instantiate(variables, instances, typeSpecs, dataPointer)
                 }
 
                 // Resolve variables and eval applications
@@ -218,20 +190,15 @@ class TypedSpecCompiler : Processor<ParametrisedSpecs, TypedSpecs> {
                     }
                 }.filterNotNull()
 
-                // Functions without arguments are data
+                // Applications or Variables are data, Functions not
                 val data = operands.mapIndexed { index, lambda ->
-                    if (lambda.type is Type.Application) index else null
+                    if (lambda.type !is Type.Function) index else null
                 }.filterNotNull()
 
-                // Functions with arguments are functions
+                // Find functions
                 val functions = operands.mapIndexed { index, lambda ->
                     if (lambda.type is Type.Function) index else null
                 }.filterNotNull()
-
-                // Instance shouldn't contain type variables
-                if (operands.any { it.type is Type.Variable }) {
-                    throw IllegalStateException("Expression $this contains type variables")
-                }
 
                 TypedSpec.Application(
                         typeInstance,
@@ -255,7 +222,6 @@ class TypedSpecCompiler : Processor<ParametrisedSpecs, TypedSpecs> {
                     val compiledCase = case.body.instantiate(
                             variables + variablesMap,
                             instances,
-                            parametrisedInstances,
                             typeSpecs,
                             nextPointer
                     )
@@ -264,11 +230,10 @@ class TypedSpecCompiler : Processor<ParametrisedSpecs, TypedSpecs> {
                             compiledCase
                     )
                 }
-                val resultType = type.type.getResultType() as Type.Application
                 TypedSpec.Function.Guarded(
                         name,
                         typeInstance,
-                        InstanceName(resultType.signature, resultType.typeSignature),
+                        type.type.getResultType().toSignature(),
                         cases
                 )
             }

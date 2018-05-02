@@ -18,15 +18,16 @@ mul (S x) b = plus (mul x b) b;
 pow a Z = S Z;
 pow a (S b) = mul a (pow a b);
 
-@type reduce = (N -> N -> N) -> N -> List N -> N;
 reduce f y Nil = y;
 reduce f y (Cons x t) = f x (reduce f y t);
 
 sum x = reduce plus Z x;
 
-@type Tree = Leaf | Node Tree Tree;
+prod x = reduce mul (S Z) x;
 
-size Leaf = S Z;
+@type Tree a = Leaf a | Node (Tree a) (Tree a);
+
+size (Leaf x) = S Z;
 size (Node a b) = plus (size a) (size b);
 
 max Z Z = Z;
@@ -34,6 +35,9 @@ max (S a) Z = S a;
 max Z (S b) = S b;
 max (S a) (S b) = S (max a b);
 
-height Leaf = Z;
+height (Leaf x) = Z;
 height (Node a b) = S (max (height a) (height b));
+
+@type Identity a = MkIdentity a;
+@type Foo = MkFoo (Identity N);
 

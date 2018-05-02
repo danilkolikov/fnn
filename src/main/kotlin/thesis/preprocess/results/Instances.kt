@@ -39,11 +39,21 @@ class Instances<T> {
     operator fun get(instanceSignature: InstanceSignature, type: Parametrised<Type>) =
             this[instanceSignature, type.typeSignature()]
 
+    operator fun set(instanceName: InstanceName, obj: T) {
+        this[instanceName.signature, instanceName.typeSignature] = obj
+    }
+
+    operator fun get(instanceName: InstanceName) = this[instanceName.signature, instanceName.typeSignature]
+
     fun putIfAbsent(instanceSignature: InstanceSignature, typeSignature: TypeSignature, obj: T) {
         if (containsKey(instanceSignature, typeSignature)) {
             return
         }
         this[instanceSignature, typeSignature] = obj
+    }
+
+    fun putIfAbsent(instanceName: InstanceName, obj: T) {
+        this.putIfAbsent(instanceName.signature, instanceName.typeSignature, obj)
     }
 
     fun getInstances(instanceSignature: InstanceSignature)

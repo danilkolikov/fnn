@@ -3,14 +3,12 @@ package thesis.preprocess.spec.parametrised
 import thesis.preprocess.expressions.LambdaName
 import thesis.preprocess.expressions.TypeName
 import thesis.preprocess.expressions.TypeVariableName
-import thesis.preprocess.expressions.algebraic.type.AlgebraicType
 import thesis.preprocess.expressions.Typed
+import thesis.preprocess.expressions.algebraic.type.AlgebraicType
 import thesis.preprocess.expressions.type.Parametrised
 import thesis.preprocess.expressions.type.Type
 import thesis.preprocess.expressions.type.instantiate
-import thesis.preprocess.results.InstanceSignature
-import thesis.preprocess.results.Instances
-import thesis.preprocess.results.TypeSignature
+import thesis.preprocess.results.*
 import thesis.preprocess.spec.ParametrizedPattern
 import thesis.preprocess.spec.instantiate
 
@@ -25,7 +23,7 @@ sealed class ParametrisedSpec : Typed<Parametrised<Type>> {
 
     abstract fun instantiate(
             typeParams: Map<TypeVariableName, Type>,
-            instances: Instances<ParametrisedSpec>
+            instances: Instances<Polymorphic<ParametrisedSpec>>
     ): ParametrisedSpec
 
     fun isInstantiated() = type.isInstantiated
@@ -38,7 +36,7 @@ sealed class ParametrisedSpec : Typed<Parametrised<Type>> {
 
         override fun instantiate(
                 typeParams: Map<TypeVariableName, Type>,
-                instances: Instances<ParametrisedSpec>
+                instances: Instances<Polymorphic<ParametrisedSpec>>
         ) = Variable(
                 name,
                 instancePath,
@@ -59,7 +57,7 @@ sealed class ParametrisedSpec : Typed<Parametrised<Type>> {
 
         override fun instantiate(
                 typeParams: Map<TypeVariableName, Type>,
-                instances: Instances<ParametrisedSpec>
+                instances: Instances<Polymorphic<ParametrisedSpec>>
         ) = Object(
                 name,
                 algebraicType,
@@ -82,7 +80,7 @@ sealed class ParametrisedSpec : Typed<Parametrised<Type>> {
 
             override fun instantiate(
                     typeParams: Map<TypeVariableName, Type>,
-                    instances: Instances<ParametrisedSpec>
+                    instances: Instances<thesis.preprocess.spec.parametrised.Polymorphic<ParametrisedSpec>>
             ) = Trainable(
                     instanceSignature,
                     instancePosition,
@@ -105,7 +103,7 @@ sealed class ParametrisedSpec : Typed<Parametrised<Type>> {
 
             override fun instantiate(
                     typeParams: Map<TypeVariableName, Type>,
-                    instances: Instances<ParametrisedSpec>
+                    instances: Instances<thesis.preprocess.spec.parametrised.Polymorphic<ParametrisedSpec>>
             ) = Constructor(
                     name,
                     algebraicType,
@@ -126,7 +124,7 @@ sealed class ParametrisedSpec : Typed<Parametrised<Type>> {
 
             override fun instantiate(
                     typeParams: Map<TypeVariableName, Type>,
-                    instances: Instances<ParametrisedSpec>
+                    instances: Instances<thesis.preprocess.spec.parametrised.Polymorphic<ParametrisedSpec>>
             ) = Guarded(
                     name,
                     cases.map { it.instantiate(typeParams, instances) },
@@ -142,7 +140,7 @@ sealed class ParametrisedSpec : Typed<Parametrised<Type>> {
 
                 fun instantiate(
                         typeParams: Map<TypeVariableName, Type>,
-                        instances: Instances<ParametrisedSpec>
+                        instances: Instances<thesis.preprocess.spec.parametrised.Polymorphic<ParametrisedSpec>>
                 ) = Case(
                         patterns.map { it.instantiate(typeParams) },
                         body.instantiate(typeParams, instances)
@@ -154,7 +152,7 @@ sealed class ParametrisedSpec : Typed<Parametrised<Type>> {
 
         data class Polymorphic(
                 val name: LambdaName,
-                val expression: ParametrisedSpec,
+                val expression: thesis.preprocess.spec.parametrised.Polymorphic<ParametrisedSpec>,
                 val instanceTypeParams: Map<TypeVariableName, Type>,
                 val signature: InstanceSignature,
                 val typeSignature: TypeSignature,
@@ -164,21 +162,27 @@ sealed class ParametrisedSpec : Typed<Parametrised<Type>> {
 
             override fun instantiate(
                     typeParams: Map<TypeVariableName, Type>,
-                    instances: Instances<ParametrisedSpec>
+                    instances: Instances<thesis.preprocess.spec.parametrised.Polymorphic<ParametrisedSpec>>
             ): ParametrisedSpec {
-                val newTypeSignature = typeSignature.map {
-                    it.replace(typeParams.mapValues { (_, v) -> v.toRaw() })
-                }
-                val instance = instances[signature, newTypeSignature] ?: expression.instantiate(typeParams, instances)
+                val params = typeParams.mapValues { (_, v) -> v.toSignature() }
+                val newTypeSignature = typeSignature.map { it.replace(params) }
+                val name = InstanceName(signature, newTypeSignature)
+                val instance = instances[name]
+                        ?: thesis.preprocess.spec.parametrised.Polymorphic.Instance(
+                                expression.item.instantiate(typeParams, instances),
+                                expression,
+                                name,
+                                params
+                        )
                 instances.putIfAbsent(signature, newTypeSignature, instance)
                 return Polymorphic(
-                        name,
+                        this.name,
                         instance,
                         instanceTypeParams + typeParams,
                         signature,
                         newTypeSignature,
                         instancePath,
-                        instance.type
+                        instance.item.type
                 )
             }
 
@@ -192,7 +196,7 @@ sealed class ParametrisedSpec : Typed<Parametrised<Type>> {
                 override val type: Parametrised<Type>
         ) : Function() {
 
-            override fun instantiate(typeParams: Map<TypeVariableName, Type>, instances: Instances<ParametrisedSpec>) = Anonymous(
+            override fun instantiate(typeParams: Map<TypeVariableName, Type>, instances: Instances<thesis.preprocess.spec.parametrised.Polymorphic<ParametrisedSpec>>) = Anonymous(
                     arguments
                             .map { (name, type) -> name to type.instantiate(typeParams) }
                             .toMap(LinkedHashMap()),
@@ -211,7 +215,7 @@ sealed class ParametrisedSpec : Typed<Parametrised<Type>> {
                 override val type: Parametrised<Type>
         ) : Function() {
 
-            override fun instantiate(typeParams: Map<TypeVariableName, Type>, instances: Instances<ParametrisedSpec>) = Recursive(
+            override fun instantiate(typeParams: Map<TypeVariableName, Type>, instances: Instances<thesis.preprocess.spec.parametrised.Polymorphic<ParametrisedSpec>>) = Recursive(
                     argument,
                     body.instantiate(typeParams, instances),
                     instancePath,
@@ -230,7 +234,7 @@ sealed class ParametrisedSpec : Typed<Parametrised<Type>> {
 
         override fun instantiate(
                 typeParams: Map<TypeVariableName, Type>,
-                instances: Instances<ParametrisedSpec>
+                instances: Instances<Polymorphic<ParametrisedSpec>>
         ) = Application(
                 operands.map { it.instantiate(typeParams, instances) },
                 instancePath,
@@ -249,7 +253,7 @@ sealed class ParametrisedSpec : Typed<Parametrised<Type>> {
 
         override fun instantiate(
                 typeParams: Map<TypeVariableName, Type>,
-                instances: Instances<ParametrisedSpec>
+                instances: Instances<Polymorphic<ParametrisedSpec>>
         ) = LetAbstraction(
                 expression.instantiate(typeParams, instances),
                 bindings,

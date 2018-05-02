@@ -18,11 +18,14 @@ import thesis.preprocess.types.UnsupportedTrainableType
  * @author Danil Kolikov
  */
 class SpecCompiler : Processor<ParametrisedSpecs, Specs> {
-
+    override fun process(data: ParametrisedSpecs): Specs {
+        TODO("Implement compilation to Specs")
+    }
+    /*
     override fun process(data: ParametrisedSpecs): Specs {
         val instances = Instances<Spec>()
         val parametrisedInstances = Instances<ParametrisedSpec>()
-        val typeSpecs = TypeSpecCompiler().process(data.typeInstances)
+        val typeSpecs = TypeSpecCompiler().process(data.types)
 
         data.instances.forEach { signature, type, spec ->
             if (signature.size > 1) {
@@ -357,4 +360,5 @@ class SpecCompiler : Processor<ParametrisedSpecs, Specs> {
             }
         }
     }
+    */
 }

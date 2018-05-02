@@ -4,7 +4,10 @@ import thesis.preprocess.expressions.*
 import thesis.preprocess.expressions.type.Parametrised
 import thesis.preprocess.expressions.type.Type
 import thesis.preprocess.expressions.type.instantiate
-import thesis.preprocess.expressions.type.raw.RawType
+import thesis.preprocess.results.InstanceName
+import thesis.preprocess.results.InstanceSignature
+import thesis.preprocess.results.TypeSig
+import thesis.preprocess.results.TypeSignature
 
 /**
  * Representation of algebraic type. Has inferred kind, structure and types of constructors
@@ -37,8 +40,11 @@ class AlgebraicType(
         )
     }
 
-    val signature: List<String>
+    val signature: InstanceSignature
         get() = listOf(name)
+
+    val typeSignature: TypeSignature
+        get() = parameters.map { TypeSig.Variable(it) }
 
     override fun toString() = "$name ${parameters.joinToString(" ")} = $structure"
 
@@ -115,9 +121,9 @@ class AlgebraicType(
 
             abstract fun getVariables(): Set<TypeVariableName>
 
-            abstract fun toRaw(): RawType
-
             abstract val size: Int?
+
+            abstract fun toSignature(): TypeSig
 
             data class Variable(
                     val name: TypeVariableName
@@ -127,10 +133,10 @@ class AlgebraicType(
 
                 override fun getVariables() = setOf(name)
 
-                override fun toRaw() = RawType.Variable(name)
-
                 override val size: Int?
                     get() = null
+
+                override fun toSignature() = TypeSig.Variable(name)
 
                 override fun toString() = name
             }
@@ -147,11 +153,6 @@ class AlgebraicType(
 
                 override fun getVariables() = arguments.flatMap { it.getVariables() }.toSet()
 
-                override fun toRaw() = RawType.Application(
-                        type.name,
-                        arguments.map { it.toRaw() }
-                )
-
                 override val size: Int?
                     get() {
                         if (!arguments.isEmpty()) {
@@ -161,6 +162,11 @@ class AlgebraicType(
                         }
                         return type.structure.size
                     }
+
+                override fun toSignature() = TypeSig.Application(InstanceName(
+                        type.signature,
+                        arguments.map { it.toSignature() }
+                ))
 
                 override fun toString() = if (arguments.isEmpty()) type.name
                 else "(${type.name} ${arguments.joinToString(" ")})"
