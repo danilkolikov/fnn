@@ -2,8 +2,8 @@ package thesis.preprocess.expressions.lambda.typed
 
 import thesis.preprocess.expressions.LambdaName
 import thesis.preprocess.expressions.TypeName
-import thesis.preprocess.expressions.lambda.Lambda
 import thesis.preprocess.expressions.Typed
+import thesis.preprocess.expressions.lambda.Lambda
 import thesis.preprocess.expressions.lambda.untyped.UntypedLambda
 import thesis.preprocess.expressions.type.Implication
 import thesis.preprocess.expressions.type.Parametrised
@@ -16,7 +16,10 @@ import thesis.preprocess.expressions.type.Parametrised
  */
 sealed class TypedLambda<T : Implication<T>> : Lambda, Typed<Parametrised<T>> {
 
-    abstract fun <S: Implication<S>> modifyType(action: (T) -> S): TypedLambda<S>
+    abstract fun <S : Implication<S>> modifyType(
+            preserveParameters: Boolean = true,
+            action: (T) -> S
+    ): TypedLambda<S>
 
     fun replaceLiterals(map: Map<TypeName, T>) = modifyType { it.replaceLiterals(map) }
 
@@ -25,9 +28,12 @@ sealed class TypedLambda<T : Implication<T>> : Lambda, Typed<Parametrised<T>> {
             override val type: Parametrised<T>
     ) : TypedLambda<T>(), Lambda.Literal by lambda {
 
-        override fun <S : Implication<S>> modifyType(action: (T) -> S) = Literal(
+        override fun <S : Implication<S>> modifyType(
+                preserveParameters: Boolean,
+                action: (T) -> S
+        ) = Literal(
                 lambda,
-                type.modifyType(action)
+                type.modifyType(preserveParameters, action)
         )
 
         override fun toString() = "($name : $type)"
@@ -38,9 +44,12 @@ sealed class TypedLambda<T : Implication<T>> : Lambda, Typed<Parametrised<T>> {
             override val type: Parametrised<T>
     ) : TypedLambda<T>(), Lambda.Trainable by lambda {
 
-        override fun <S : Implication<S>> modifyType(action: (T) -> S) = Trainable(
+        override fun <S : Implication<S>> modifyType(
+                preserveParameters: Boolean,
+                action: (T) -> S
+        ) = Trainable(
                 lambda,
-                type.modifyType(action)
+                type.modifyType(preserveParameters, action)
         )
 
         override fun toString() = "(@learn : $type)"
@@ -52,10 +61,13 @@ sealed class TypedLambda<T : Implication<T>> : Lambda, Typed<Parametrised<T>> {
             override val type: Parametrised<T>
     ) : TypedLambda<T>(), Lambda.Abstraction<TypedLambda<T>> {
 
-        override fun <S : Implication<S>> modifyType(action: (T) -> S) = Abstraction(
-                arguments.map { it.modifyType(action) },
-                expression.modifyType(action),
-                type.modifyType(action)
+        override fun <S : Implication<S>> modifyType(
+                preserveParameters: Boolean,
+                action: (T) -> S
+        ) = Abstraction(
+                arguments.map { it.modifyType(preserveParameters, action) },
+                expression.modifyType(preserveParameters, action),
+                type.modifyType(preserveParameters, action)
         )
 
         override fun toString() = "(\\${arguments.joinToString(" ")}. $expression : $type)"
@@ -67,10 +79,13 @@ sealed class TypedLambda<T : Implication<T>> : Lambda, Typed<Parametrised<T>> {
             override val type: Parametrised<T>
     ) : TypedLambda<T>(), Lambda.LetAbstraction<TypedLambda<T>> {
 
-        override fun <S : Implication<S>> modifyType(action: (T) -> S) = LetAbstraction(
-                bindings.map { it.modifyType(action) },
-                expression.modifyType(action),
-                type.modifyType(action)
+        override fun <S : Implication<S>> modifyType(
+                preserveParameters: Boolean,
+                action: (T) -> S
+        ) = LetAbstraction(
+                bindings.map { it.modifyType(preserveParameters, action) },
+                expression.modifyType(preserveParameters, action),
+                type.modifyType(preserveParameters, action)
         )
 
         override fun toString() = "(@let ${bindings.joinToString(", ")} @in $expression : $type)"
@@ -80,25 +95,31 @@ sealed class TypedLambda<T : Implication<T>> : Lambda, Typed<Parametrised<T>> {
                 override val expression: TypedLambda<T>
         ) : Lambda.LetAbstraction.Binding<TypedLambda<T>> {
 
-            fun <S: Implication<S>> modifyType(action: (T) -> S): Binding<S> = Binding(
+            fun <S : Implication<S>> modifyType(
+                    preserveParameters: Boolean = true,
+                    action: (T) -> S
+            ): Binding<S> = Binding(
                     name,
-                    expression.modifyType(action)
+                    expression.modifyType(preserveParameters, action)
             )
 
             override fun toString() = "$name = $expression"
         }
     }
 
-    data class RecAbstraction<T: Implication<T>>(
+    data class RecAbstraction<T : Implication<T>>(
             override val argument: TypedLambda.Literal<T>,
             override val expression: TypedLambda<T>,
             override val type: Parametrised<T>
     ) : TypedLambda<T>(), Lambda.RecAbstraction<TypedLambda<T>> {
 
-        override fun <S : Implication<S>> modifyType(action: (T) -> S) = TypedLambda.RecAbstraction(
-                argument.modifyType(action),
-                expression.modifyType(action),
-                type.modifyType(action)
+        override fun <S : Implication<S>> modifyType(
+                preserveParameters: Boolean,
+                action: (T) -> S
+        ) = TypedLambda.RecAbstraction(
+                argument.modifyType(preserveParameters, action),
+                expression.modifyType(preserveParameters, action),
+                type.modifyType(preserveParameters, action)
         )
 
         override fun toString() = "(@rec $argument @in $expression : $type)"
@@ -110,10 +131,13 @@ sealed class TypedLambda<T : Implication<T>> : Lambda, Typed<Parametrised<T>> {
             override val type: Parametrised<T>
     ) : TypedLambda<T>(), Lambda.Application<TypedLambda<T>> {
 
-        override fun <S : Implication<S>> modifyType(action: (T) -> S) = Application(
-                function.modifyType(action),
-                arguments.map { it.modifyType(action) },
-                type.modifyType(action)
+        override fun <S : Implication<S>> modifyType(
+                preserveParameters: Boolean,
+                action: (T) -> S
+        ) = Application(
+                function.modifyType(preserveParameters, action),
+                arguments.map { it.modifyType(preserveParameters, action) },
+                type.modifyType(preserveParameters, action)
         )
 
         override fun toString() = "($function ${arguments.joinToString(" ")} : $type)"

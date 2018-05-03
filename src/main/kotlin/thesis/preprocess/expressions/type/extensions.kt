@@ -23,4 +23,6 @@ fun Parametrised<Type>.instantiate(
     )
 }
 
-fun Parametrised<Type>.typeSignature(): TypeSignature = initialParameters.map { typeParams[it]!!.toSignature() }
+fun Parametrised<Type>.typeSignature(): TypeSignature = initialParameters.map {
+    (typeParams[it] ?: Type.Variable(it)).toSignature()
+}

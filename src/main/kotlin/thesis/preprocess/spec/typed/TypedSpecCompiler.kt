@@ -115,7 +115,10 @@ class TypedSpecCompiler : Processor<ParametrisedSpecs, TypedSpecs> {
                 val newVariables = this.arguments.map { (name, parametrised) ->
                     val argType = parametrised.type
                     when (argType) {
-                        is Type.Variable -> throw IllegalStateException("Unexpected variable ${argType.name}")
+                        is Type.Variable -> {
+                            // It is object now, as we don't support mixed data types
+                            name to TypedSpec.Variable.Object(argType, thisOffset++)
+                        }
                         is Type.Application -> {
                             // It is object now, as we don't support mixed data types
                             name to TypedSpec.Variable.Object(argType, thisOffset++)

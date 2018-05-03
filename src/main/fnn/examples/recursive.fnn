@@ -21,7 +21,7 @@ pow a (S b) = mul a (pow a b);
 reduce f y Nil = y;
 reduce f y (Cons x t) = f x (reduce f y t);
 
-sum x = reduce plus Z x;
+sum x = @let id = (@let id = \x . x @in \x. id x) @in reduce plus (id Z) (id x);
 
 prod x = reduce mul (S Z) x;
 

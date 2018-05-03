@@ -384,7 +384,9 @@ class LambdaInferenceProcessor(
         }
     }
 
-    private fun TypedLambda<RawType>.bindLiterals(definedTypes: Set<String>) = modifyType { it.bindLiterals(definedTypes) }
+    private fun TypedLambda<RawType>.bindLiterals(definedTypes: Set<String>) = modifyType(false) {
+        it.bindLiterals(definedTypes)
+    }
 
     companion object {
         private const val TRAIN_PREFIX = "learn"
