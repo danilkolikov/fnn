@@ -1,0 +1,51 @@
+@type N = Z | S N;
+@type Pair a b = MkPair a b;
+
+
+@type plusOne = N -> N;
+plusOne x = @learn { to_depth = 2 } x;
+requiredPlusOne x = S x;
+
+@type minusOne = N -> N;
+minusOne x = @learn { from_depth = 2, to_depth = 1 } x;
+requiredMinusOne (S x) = x;
+
+@type plus = N -> N -> N;
+plus Z y = @learn y;
+plus (S x) y = @learn (plus x (@learn y));
+
+plusRequired Z b = b;
+plusRequired (S x) b = S (plusRequired x b);
+
+@type minus = N -> N -> N;
+minus x Z = @learn x;
+minus x (S y) = @learn (minus (@learn x) y);
+
+minusRequired Z (S y) = Z;
+minusRequired x Z = x;
+minusRequired (S x) (S y) = S (minusRequired x y);
+
+@type mul = N -> N -> N;
+mul Z y = @learn y;
+mul (S x) y = plus (@learn (mul x (@learn y))) (@learn y);
+
+mulRequired Z b = Z;
+mulRequired (S x) b = plusRequired (mulRequired x b) b;
+
+@type pow = N -> N -> N;
+pow x Z = @learn x;
+pow x (S y) = mul x (pow x y);
+
+powRequired a Z = S Z;
+powRequired a (S b) = mulRequired a (powRequired a b);
+
+@type Cmp = Less | Equal | Greater;
+
+@type cmp = N -> N -> Cmp;
+cmp x y = @learn x y;
+cmp (S x) (S y) = @learn (cmp x y);
+
+cmpRequired Z Z = Equal;
+cmpRequired (S x) Z = Greater;
+cmpRequired Z (S y) = Less;
+cmpRequired (S x) (S y) = cmpRequired x y;

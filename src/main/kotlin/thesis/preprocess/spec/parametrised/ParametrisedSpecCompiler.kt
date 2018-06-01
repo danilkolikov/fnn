@@ -21,8 +21,6 @@ class ParametrisedSpecCompiler : Processor<InferredExpressions, ParametrisedSpec
         val compiled = mutableMapOf<LambdaName, ParametrisedSpec>()
         val instances = Instances<Polymorphic<ParametrisedSpec>>()
 
-        val trainable = LinkedHashMap<InstanceSignature, MutableList<ParametrisedTrainableSpec>>()
-
         // Add constructors
         val definedTypes = mutableSetOf<TypeName>()
         data.typeDefinitions.forEach { _, type ->
@@ -84,8 +82,7 @@ class ParametrisedSpecCompiler : Processor<InferredExpressions, ParametrisedSpec
                         newVariables,
                         compiled,
                         listOf(name),
-                        instances,
-                        trainable
+                        instances
                 )
                 val application = if (case is ParametrisedSpec.Function.Polymorphic) {
                     // It's a call of functions, it's better to wrap into Application
@@ -126,8 +123,7 @@ class ParametrisedSpecCompiler : Processor<InferredExpressions, ParametrisedSpec
         }
         return ParametrisedSpecs(
                 typeInstances,
-                instances,
-                trainable.mapValuesTo(LinkedHashMap()) { (_, v) -> v.toList() }
+                instances
         )
     }
 
@@ -135,17 +131,18 @@ class ParametrisedSpecCompiler : Processor<InferredExpressions, ParametrisedSpec
             variables: Map<LambdaName, ParametrisedSpec.Variable>,
             compiled: Map<LambdaName, ParametrisedSpec>,
             instancePath: List<LambdaName>,
-            instances: Instances<Polymorphic<ParametrisedSpec>>,
-            trainable: LinkedHashMap<InstanceSignature, MutableList<ParametrisedTrainableSpec>>
+            instances: Instances<Polymorphic<ParametrisedSpec>>
     ): ParametrisedSpec = when (this) {
         is TypedLambda.Trainable -> {
-            trainable.computeIfAbsent(instancePath, { mutableListOf() })
-            val trainableSpecs = trainable[instancePath]!!
-            val spec = ParametrisedTrainableSpec.fromType(type)
-            trainableSpecs.add(spec)
+            val arguments = type.type.getArguments().map { it.toSignature() }
+            val toType = type.type.getResultType().toSignature()
+            val spec = ParametrisedTrainableSpec(
+                    options,
+                    arguments,
+                    toType
+            )
             ParametrisedSpec.Function.Trainable(
                     instancePath,
-                    trainableSpecs.size - 1,
                     spec,
                     instancePath,
                     type
@@ -225,8 +222,7 @@ class ParametrisedSpecCompiler : Processor<InferredExpressions, ParametrisedSpec
                             variables + vars,
                             compiled,
                             instancePath,
-                            instances,
-                            trainable
+                            instances
                     ),
                     instancePath,
                     type
@@ -241,14 +237,13 @@ class ParametrisedSpecCompiler : Processor<InferredExpressions, ParametrisedSpec
                         variables,
                         newCompiled,
                         instancePath + listOf(name),
-                        instances,
-                        trainable
+                        instances
                 )
                 newCompiled[it.name] = binding
                 bound.add(it.name)
             }
             val compiledExpr = expression
-                    .compile(variables, newCompiled, instancePath, instances, trainable)
+                    .compile(variables, newCompiled, instancePath, instances)
             ParametrisedSpec.LetAbstraction(
                     compiledExpr,
                     bound,
@@ -265,7 +260,7 @@ class ParametrisedSpecCompiler : Processor<InferredExpressions, ParametrisedSpec
             ParametrisedSpec.Function.Recursive(
                     argument.name,
                     expression.compile(
-                            vars, compiled, instancePath, instances, trainable
+                            vars, compiled, instancePath, instances
                     ),
                     instancePath,
                     type
@@ -273,7 +268,7 @@ class ParametrisedSpecCompiler : Processor<InferredExpressions, ParametrisedSpec
         }
         is TypedLambda.Application -> {
             val operands = (listOf(function) + this.arguments).map {
-                it.compile(variables, compiled, instancePath, instances, trainable)
+                it.compile(variables, compiled, instancePath, instances)
             }
             ParametrisedSpec.Application(
                     operands,

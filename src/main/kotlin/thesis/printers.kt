@@ -70,16 +70,5 @@ class ConsolePrettyPrinter : PrettyPrinter {
             }
             println()
         }
-        if (!parametrisedSpecs.trainable.isEmpty()) {
-            println("@learn instances: ")
-            parametrisedSpecs.trainable.forEach { names, specs ->
-                specs.forEach { spec ->
-                    val name = "${names.joinToString("→")} : ${spec.type}"
-                    println("    $name")
-                }
-            }
-            println()
-        }
-        println()
     }
 }

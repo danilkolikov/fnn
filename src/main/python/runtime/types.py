@@ -17,16 +17,28 @@ class BaseTypeSpec:
         pass
 
     @abstractmethod
-    def __iter__(self):
+    def size(self):
+        pass
+
+    @abstractmethod
+    def specs(self):
+        pass
+
+    @abstractmethod
+    def objects(self):
+        raise StopIteration
+
+    @abstractmethod
+    def __eq__(self, o: object):
         pass
 
     def to_tensor_tree(self, count=None):
         from .tree import stack
 
         if count is None:
-            values = list(self)
+            values = list(self.objects())
         else:
-            values = list(islice(self, count))
+            values = list(islice(self.objects(), count))
         return stack(values)
 
 
@@ -37,6 +49,7 @@ class TypeSpec(BaseTypeSpec):
 
     def __init__(self, operands):
         self.operands = operands
+        self.wrapped = None
 
     def size(self):
         size = 0
@@ -45,9 +58,23 @@ class TypeSpec(BaseTypeSpec):
         return size
 
     def instantiate(self, **kwargs):
-        return TypeSpec(list(map(lambda o: o.instantiate(**kwargs), self.operands)))
+        return TypeSpec([o.instantiate(**kwargs) for o in self.operands])
 
-    def __iter__(self):
+    def __eq__(self, o: object):
+        if not isinstance(o, TypeSpec):
+            if isinstance(o, RecSpec) and self.wrapped is not None:
+                return self.wrapped == o
+            return False
+        if self.wrapped is not None and o.wrapped is not None:
+            return self.wrapped == o.wrapped
+        return self.operands == o.operands
+
+    def specs(self):
+        for operand in self.operands:
+            for spec in operand.specs():
+                yield spec
+
+    def objects(self):
         from .tree import TensorTree
 
         cur_start = 0
@@ -56,7 +83,7 @@ class TypeSpec(BaseTypeSpec):
         for operand in self.operands:
             operand_size = operand.size()
             left -= operand_size
-            for tree in operand:
+            for tree in operand.objects():
                 to_cat = []
                 children = []
                 if cur_start > 0:
@@ -90,11 +117,17 @@ class LitSpec(BaseTypeSpec):
     def instantiate(self, **kwargs):
         return self
 
-    @staticmethod
-    def size():
+    def size(self):
         return 1
 
-    def __iter__(self):
+    def __eq__(self, o: object):
+        # All LitSpecs are equal
+        return isinstance(o, LitSpec)
+
+    def specs(self):
+        yield self
+
+    def objects(self):
         from .tree import TensorTree
 
         yield TensorTree(
@@ -119,8 +152,18 @@ class VarSpec(BaseTypeSpec):
             return self
         return kwargs[self.name]
 
-    def __iter__(self):
-        raise ValueError("Can't iterate over a type variable " + self.name)
+    def size(self):
+        return 1
+
+    def __eq__(self, o: object):
+        # Every VarSpec is equal (alpha-equivalent, to be precise)
+        return isinstance(o, VarSpec)
+
+    def specs(self):
+        yield self
+
+    def objects(self):
+        raise StopIteration
 
     def __repr__(self):
         return 'VarSpec(' + self.name + ')'
@@ -130,27 +173,40 @@ class RecSpec(BaseTypeSpec):
     """
     Recursive type spec. Allow type to refer to itself
     """
-    def __init__(self, definition):
+    def __init__(self, name, definition):
+        self.name = name
         self.definition = definition
 
     def instantiate(self, **kwargs):
-        return RecSpec(lambda t: self.definition(t).instantiate(**kwargs))
+        return RecSpec(self.name, lambda t: self.definition(t).instantiate(**kwargs))
+
+    def size(self):
+        raise ValueError("Can't get size of RecType as it's structure may be infinite")
+
+    def specs(self):
+        raise ValueError("RecSpec doesn't support iteration over specs")
+
+    def __eq__(self, o: object):
+        if not isinstance(o, RecSpec):
+            if isinstance(o, TypeSpec) and o.wrapped is not None:
+                return self == o.wrapped
+            return False
+        # Unwrap once and compare results
+        return self.definition(VarSpec(self.name)) == o.definition(VarSpec(self.name))
 
     def unwrap(self, times):
         if times == 0:
-            return create_empty_type()
+            return self
         else:
-            return self.definition(self.unwrap(times - 1))
+            unwrapped = self.definition(self.unwrap(times - 1))
+            unwrapped.wrapped = self
+            return unwrapped
 
-    def __iter__(self):
-        cur = create_empty_type()
-        while True:
-            cur = self.definition(cur)
-            for tree in cur:
-                yield tree
+    def objects(self):
+        raise StopIteration
 
     def __repr__(self):
-        return 'RecSpec(lambda t: ' + str(self.definition(VarSpec('t'))) + ')'
+        return 'RecSpec(lambda ' + self.name + ': ' + str(self.definition(VarSpec(self.name))) + ')'
 
 
 class ProdSpec(BaseTypeSpec):
@@ -162,14 +218,24 @@ class ProdSpec(BaseTypeSpec):
         self.operands = operands
 
     def instantiate(self, **kwargs):
-        return ProdSpec(list(map(lambda o: o.instantiate(**kwargs), self.operands)))
+        return ProdSpec([o.instantiate(**kwargs) for o in self.operands])
+
+    def __eq__(self, o: object):
+        if not isinstance(o, ProdSpec):
+            return False
+        return self.operands == o.operands
 
     def size(self):
         return len(self.operands)
 
-    def __iter__(self):
+    def objects(self):
         for tree in self._recursive_iter(self.operands, [], []):
             yield tree
+
+    def specs(self):
+        for operand in self.operands:
+            # Don't iterate over operand's specs
+            yield operand
 
     def _recursive_iter(self, operands, collected, presences):
         from .tree import TensorTree
@@ -184,7 +250,7 @@ class ProdSpec(BaseTypeSpec):
         else:
             first = operands[0]
             rest = operands[1:]
-            for tree in first:
+            for tree in first.objects():
                 new_list = [*collected, tree]
                 new_presences = [*presences, tree.presence()]
                 for result_tree in self._recursive_iter(rest, new_list, new_presences):
@@ -196,6 +262,10 @@ class ProdSpec(BaseTypeSpec):
 
 def create_empty_type():
     return TypeSpec([])
+
+
+def create_unit_type():
+    return TypeSpec([LitSpec()])
 
 
 def create_tuple_type(types):

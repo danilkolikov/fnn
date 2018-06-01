@@ -23,7 +23,9 @@ class DataBag:
     Contains information required for execution of the network
     """
 
-    def __init__(self, data, nets, size=None):
+    def __init__(self, data, nets=None, size=None):
+        if nets is None:
+            nets = []
         if size is None:
             size = data.tensor.size()[0]
         self.data = data

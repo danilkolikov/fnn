@@ -72,8 +72,7 @@ data class InferredExpressions(
  */
 data class ParametrisedSpecs(
         val types: Instances<Polymorphic<AlgebraicType>>,
-        val expressions: Instances<Polymorphic<ParametrisedSpec>>,
-        val trainable: LinkedHashMap<InstanceSignature, List<ParametrisedTrainableSpec>>
+        val expressions: Instances<Polymorphic<ParametrisedSpec>>
 )
 
 /**
@@ -85,8 +84,7 @@ data class ParametrisedSpecs(
 data class Specs(
         val typeSpecs: Instances<TypeSpec>,
         val instances: Instances<Spec>,
-        val parametrisedInstances: Instances<ParametrisedSpec>,
-        val trainable: LinkedHashMap<InstanceSignature, List<ParametrisedTrainableSpec>>
+        val parametrisedInstances: Instances<ParametrisedSpec>
 )
 
 /**
@@ -94,6 +92,5 @@ data class Specs(
  */
 data class TypedSpecs(
         val types: Instances<Polymorphic<AlgebraicType>>,
-        val expressions: Instances<Polymorphic<TypedSpec>>,
-        val trainableInstances: LinkedHashMap<InstanceSignature, List<ParametrisedTrainableSpec>>
+        val expressions: Instances<Polymorphic<TypedSpec>>
 )

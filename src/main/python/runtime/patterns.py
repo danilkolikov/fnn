@@ -38,11 +38,10 @@ class ConstructorPattern(BasePattern):
                 return torch.zeros(rows), []
             else:
                 (child_presence, child_trees) = pattern.get_trees(child)
-                child_presence *= tree.tensor[:, cur]
-                cur += 1
 
-                presence *= child_presence
+                presence = presence * child_presence * tree.tensor[:, cur]
                 trees.extend(child_trees)
+                cur += 1
 
         return presence, trees
 

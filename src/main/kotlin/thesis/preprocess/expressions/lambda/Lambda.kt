@@ -14,7 +14,9 @@ interface Lambda : Expression {
         val name: String
     }
 
-    interface Trainable : Lambda
+    interface Trainable : Lambda {
+        val options: Map<String, Any>
+    }
 
     interface Abstraction<out E: Lambda> : Lambda {
         val arguments: List<Lambda.Literal>

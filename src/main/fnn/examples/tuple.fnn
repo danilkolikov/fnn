@@ -10,32 +10,32 @@
 
 -- Function that learns permutation
 @type permute = Tuple a -> Tuple a;
-permute = @learn;
+permute x = @learn x;
 
 -- Required permutation
 required (MkTuple a b c d e f g h i j) = MkTuple i j f g c d b f a e;
 
 -- Instance to learn on
-permuteBool x = permute (x : Tuple Bool);
-requiredBool x = required (x : Tuple Bool);
+--permuteBool x = permute (x : Tuple Bool);
+--requiredBool x = required (x : Tuple Bool);
 
 -- Instances to check on
-permuteMaybe x = permute (x : Tuple (Maybe Bool));
-requiredMaybe x = required (x : Tuple (Maybe Bool));
-
-permuteEither x = permute (x : Tuple (Either Bool Bool));
-requiredEither x = required (x : Tuple (Either Bool Bool));
-
-permutePair x = permute (x : Tuple (Pair (Either Bool Bool) Unit));
-requiredPair x = required (x : Tuple (Pair (Either Bool Bool) Unit));
-
-permuteTuple x = permute (x : Tuple (Tuple Unit));
-requiredTuple x = required (x : Tuple (Tuple Unit));
-
-permuteLongTuple x = permute (x : Tuple (Tuple Bool));
-requiredLongTuple x = required (x : Tuple (Tuple Bool));
-
-permuteVeryLongTuple x = permute (x : Tuple (Pair (Tuple Bool) (Tuple Unit)));
-requiredVeryLongTuple x = required (x : Tuple (Pair (Tuple Bool) (Tuple Unit)));
+--permuteMaybe x = permute (x : Tuple (Maybe Bool));
+--requiredMaybe x = required (x : Tuple (Maybe Bool));
+--
+--permuteEither x = permute (x : Tuple (Either Bool Bool));
+--requiredEither x = required (x : Tuple (Either Bool Bool));
+--
+--permutePair x = permute (x : Tuple (Pair (Either Bool Bool) Unit));
+--requiredPair x = required (x : Tuple (Pair (Either Bool Bool) Unit));
+--
+--permuteTuple x = permute (x : Tuple (Tuple Unit));
+--requiredTuple x = required (x : Tuple (Tuple Unit));
+--
+--permuteLongTuple x = permute (x : Tuple (Tuple Bool));
+--requiredLongTuple x = required (x : Tuple (Tuple Bool));
+--
+--permuteVeryLongTuple x = permute (x : Tuple (Pair (Tuple Bool) (Tuple Unit)));
+--requiredVeryLongTuple x = required (x : Tuple (Pair (Tuple Bool) (Tuple Unit)));
 
 

@@ -4,7 +4,6 @@ import thesis.preprocess.expressions.TypeVariableName
 import thesis.preprocess.expressions.algebraic.type.AlgebraicType
 import thesis.preprocess.results.*
 import thesis.preprocess.spec.DataPointer
-import thesis.preprocess.spec.parametrised.ParametrisedTrainableSpec
 import thesis.preprocess.spec.parametrised.Polymorphic
 import thesis.preprocess.spec.typed.PatternInstance
 import thesis.preprocess.spec.typed.TypedSpec
@@ -23,8 +22,7 @@ object PyTorchWriter {
         IndentedWriter(writer, INDENT).write {
             +"import torch"
             +"from .runtime.modules import ConstantLayer, VariableLayer, AnonymousNetLayer, ConstructorLayer, GuardedLayer, \\"
-            +"    ApplicationLayer, RecursiveLayer"
-            +"from .runtime.poly import TrainablePolyNet"
+            +"    ApplicationLayer, RecursiveLayer, TrainableLayer"
             +"from .runtime.data import DataPointer"
             +"from .runtime.types import TypeSpec, LitSpec, RecSpec, VarSpec, ProdSpec"
             +"from .runtime.patterns import VarPattern, LitPattern, ConstructorPattern"
@@ -38,33 +36,6 @@ object PyTorchWriter {
                     +""
                     +""
                 }
-            }
-            if (!data.trainableInstances.isEmpty()) {
-                +""
-                +"# Polymorphic nets specifications"
-                data.trainableInstances.forEach { name, instances ->
-                    instances.forEachIndexed { index, parametrisedTrainableSpec ->
-                        val arguments = parametrisedTrainableSpec.argumentsTypes.joinToString(", ") {
-                            it.toPython()
-                        }
-                        val result = parametrisedTrainableSpec.resultType.joinToString(", ") {
-                            it.toPython()
-                        }
-                        +"${getPolyNetName(name, index)} = TrainablePolyNet([$arguments], [$result])"
-                    }
-                    +""
-                }
-                +""
-                +"# Update instances - this method should be called after each backprop on net with polymorphic @learn"
-                +"def update_instances():"
-                indent {
-                    data.trainableInstances.forEach { name, instances ->
-                        instances.forEachIndexed { index, _ ->
-                            +"${getPolyNetName(name, index)}.update_instances()"
-                        }
-                    }
-                }
-                +""
             }
             if (!data.expressions.isEmpty()) {
                 +""
@@ -87,6 +58,7 @@ object PyTorchWriter {
                 if (type.recursive) {
                     +"RecSpec("
                     indent {
+                        +"name='${type.name}',"
                         +"definition=lambda ${getTypeSpecName(spec.name)}: "
                         indent {
                             writeNotRecursive(type)
@@ -175,19 +147,23 @@ object PyTorchWriter {
             +"RecursiveLayer("
             indent {
                 writePython(spec.body)
-                appendLnWithoutIndent(", ${spec.closurePointer.toPython()}")
+                appendLnWithoutIndent(", ${spec.toType.toPythonObject()}, ${spec.closurePointer.toPython()}")
             }
             -")"
         }
         is TypedSpec.Function.Trainable -> {
-            val polyName = getPolyNetName(spec.instanceSignature, spec.instancePosition)
-            val args = mutableListOf<String>()
-            if (!spec.typeParamsSize.isEmpty()) {
-                args.add("type_params={${spec.typeParamsSize.entries.joinToString(", ") {
-                    "'${it.key}': ${it.value}"
-                }}}")
+            val parametrisedTrainableSpec = spec.trainableTypedSpec
+            val arguments = parametrisedTrainableSpec.arguments.joinToString(", ") {
+                it.toPythonObject()
             }
-            -"$polyName.instantiate(${args.joinToString(", ")})"
+            val result = parametrisedTrainableSpec.toType.toPythonObject()
+            val args = mutableListOf<String>()
+            args.add("[$arguments]")
+            args.add(result)
+            parametrisedTrainableSpec.options.entries.map {
+                "${it.key}=${it.value}"
+            }.forEach { args.add(it) }
+            -"TrainableLayer(${args.joinToString(", ")})"
         }
         is TypedSpec.Function.Constructor -> {
             val toType = getTypeSpecName(spec.toType.signature, spec.toType.typeSignature)
@@ -277,11 +253,6 @@ object PyTorchWriter {
             instanceName: InstanceName
     ) = getNetworkName(instanceName.signature, instanceName.typeSignature)
 
-    private fun getPolyNetName(
-            instanceSignature: InstanceSignature,
-            instancePosition: Int
-    ) = "${instanceSignature.joinToString("_")}_${instancePosition}_polynet"
-
     private fun TypeSig.toPython(): String = when (this) {
         is TypeSig.Variable -> name
         is TypeSig.Function -> "_${from.toPython()}_to_${to.toPython()}_"
@@ -298,11 +269,6 @@ object PyTorchWriter {
         is TypeSig.Function -> throw IllegalArgumentException(
                 "Can't instantiate $this as instantiation by functions is unsupported"
         )
-    }
-
-    private fun ParametrisedTrainableSpec.LayerSpec.toPython(): String = when (this) {
-        is ParametrisedTrainableSpec.LayerSpec.Fixed -> size.toString()
-        is ParametrisedTrainableSpec.LayerSpec.Variable -> "'$name'"
     }
 
     private fun DataPointer.toPython() = "DataPointer($dataOffset, $functionsCount)"

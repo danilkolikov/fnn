@@ -72,7 +72,6 @@ sealed class ParametrisedSpec : Typed<Parametrised<Type>> {
 
         data class Trainable(
                 val instanceSignature: InstanceSignature,
-                val instancePosition: Int,
                 val trainableSpec: ParametrisedTrainableSpec,
                 override val instancePath: List<LambdaName>,
                 override val type: Parametrised<Type>
@@ -83,7 +82,6 @@ sealed class ParametrisedSpec : Typed<Parametrised<Type>> {
                     instances: Instances<thesis.preprocess.spec.parametrised.Polymorphic<ParametrisedSpec>>
             ) = Trainable(
                     instanceSignature,
-                    instancePosition,
                     trainableSpec,
                     instancePath,
                     type.instantiate(typeParams)

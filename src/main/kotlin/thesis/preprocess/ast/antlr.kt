@@ -106,7 +106,8 @@ fun LambdaProgramParser.LambdaApplicationOperandContext.toAst(): UntypedLambda {
         return UntypedLambda.Literal(terminal.text)
     }
     if (LEARN_KEYWORD() != null) {
-        return UntypedLambda.Trainable()
+        val options = expressionOptions()?.toAst() ?: emptyMap()
+        return UntypedLambda.Trainable(options)
     }
     if (LET_KEYWORD() != null && letBindings() != null && body != null) {
         val body = body.toAst()
@@ -217,3 +218,9 @@ fun LambdaProgramParser.PatternExpressionContext.toAst(): UntypedPattern {
     }
     throw IllegalStateException("Unexpected AST node")
 }
+
+fun LambdaProgramParser.ExpressionOptionsContext.toAst(): Map<String, Any> =
+        expressionOption().map { it.toAst() }.toMap()
+
+fun LambdaProgramParser.ExpressionOptionContext.toAst(): Pair<String, Any> =
+        name.text to value.text.toInt()

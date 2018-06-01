@@ -31,10 +31,15 @@ sealed class UntypedLambda : Lambda {
         override fun toString() = "($expression : $type)"
     }
 
-    class Trainable : UntypedLambda(), Lambda.Trainable {
+    data class Trainable(
+            override val options: Map<String, Any>
+    ) : UntypedLambda(), Lambda.Trainable {
         override fun getBoundVariables() = emptySet<String>()
 
-        override fun toString() = "@learn"
+        override fun toString(): String {
+            return if (options.isEmpty()) "@learn" else
+            "@learn { ${options.entries.joinToString(", ") { "${it.key}: ${it.value}" }} }"
+        }
     }
 
     data class Abstraction(

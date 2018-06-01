@@ -63,11 +63,9 @@ sealed class TypedSpec : Typed<Type> {
 
         data class Trainable(
                 val instanceSignature: InstanceSignature,
-                val instancePosition: Int,
                 val trainableTypedSpec: ParametrisedTrainableSpec,
                 override val type: Type,
-                val dataPointer: DataPointer,
-                val typeParamsSize: Map<TypeVariableName, Int>
+                val dataPointer: DataPointer
         ) : Function() {
             override val closurePointer = DataPointer.START // Assuming trainable to be defined in global scope
 
@@ -118,6 +116,7 @@ sealed class TypedSpec : Typed<Type> {
         data class Recursive(
                 val name: LambdaName,
                 val body: TypedSpec,
+                val toType: TypeSig,
                 override val type: Type,
                 override val closurePointer: DataPointer
         ) : Function() {

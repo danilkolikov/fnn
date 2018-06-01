@@ -1,0 +1,37 @@
+@type List a = Empty | Cons a (List a);
+@type N = Z | S N;
+
+@type Unit = MkUnit;
+@type Bool = False | True;
+@type Pair a b = MkPair a b;
+@type Triple a b c = MkTriple a b c;
+@type Maybe a = Just a | Nothing;
+
+
+@type getOrDefault = N -> a -> List a -> a;
+getOrDefault n x Empty = @learn n x;
+getOrDefault Z x y = @learn x y;
+getOrDefault (S n) x (Cons y rest) = @learn (getOrDefault n (@learn x) rest);
+
+getRequired n def Empty = def;
+getRequired Z def (Cons x rest) = x;
+getRequired (S n) def (Cons x rest) = getRequired n def rest;
+
+@type concat = List a -> List a -> List a;
+concat Empty y = @learn y;
+concat (Cons x rest) y = @learn x (concat rest y);
+
+concatRequired Empty y = y;
+concatRequired (Cons x rest) y = Cons x (concatRequired rest y);
+
+@type singleton = a -> List a;
+singleton x = @learn{to_depth=2} x;
+
+singletonRequired x = Cons x Empty;
+
+@type reverse = List a -> List a;
+reverse Empty = Empty;
+reverse (Cons x rest) = concat (Cons x Empty) (reverse rest);
+
+reverseRequired Empty = Empty;
+reverseRequired (Cons x rest) = concatRequired (Cons x Empty) (reverseRequired rest) ;

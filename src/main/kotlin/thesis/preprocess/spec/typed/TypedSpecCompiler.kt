@@ -12,7 +12,6 @@ import thesis.preprocess.spec.ParametrizedPattern
 import thesis.preprocess.spec.parametrised.ParametrisedSpec
 import thesis.preprocess.spec.parametrised.Polymorphic
 import thesis.preprocess.types.UnknownExpressionError
-import thesis.preprocess.types.UnsupportedTrainableType
 
 /**
  * Compiles parametrised specs to usual specs
@@ -47,8 +46,7 @@ class TypedSpecCompiler : Processor<ParametrisedSpecs, TypedSpecs> {
 
         return TypedSpecs(
                 data.types,
-                expressionInstances,
-                data.trainable
+                expressionInstances
         )
     }
 
@@ -81,32 +79,11 @@ class TypedSpecCompiler : Processor<ParametrisedSpecs, TypedSpecs> {
                 )
             }
             is ParametrisedSpec.Function.Trainable -> {
-                if (typeInstance.getOperands().size != trainableSpec.type.getOperands().size) {
-                    // Extra parameters appeared - it was instantiated by function type
-                    throw UnsupportedTrainableType(typeInstance)
-                }
-                val sizes = type.typeParams.mapValues { (_, v) ->
-                    when (v) {
-                        is Type.Variable -> throw IllegalStateException("Type should be instantiated")
-                        is Type.Function -> throw IllegalStateException("Instantiation by functions is unsupported")
-                        is Type.Application -> {
-                            val typeSignature = v.args.map { it.toSignature() }
-                            val instance = typeSpecs[v.type.signature, typeSignature] ?: throw IllegalStateException(
-                                    "Type ${v.type.name} with arguments $typeSignature " +
-                                            "is not instantiated"
-                            )
-                            TODO("Add support for trainables")
-                        }
-                    }
-                }
-
                 TypedSpec.Function.Trainable(
                         instanceSignature,
-                        instancePosition,
                         trainableSpec,
                         typeInstance,
-                        dataPointer,
-                        sizes
+                        dataPointer
                 )
             }
             is ParametrisedSpec.Function.Anonymous -> {
@@ -154,6 +131,7 @@ class TypedSpecCompiler : Processor<ParametrisedSpecs, TypedSpecs> {
                                 typeSpecs,
                                 DataPointer(dataPointer.dataOffset, functionsCount)
                         ),
+                        type.type.getResultType().toSignature(),
                         typeInstance,
                         dataPointer
                 )

@@ -1,0 +1,9 @@
+@type Bool = False | True;
+@type Answer = Yes | No | Maybe;
+@type Pair a b = MkPair a b;
+@type N = Z | S N;
+
+@type id = a -> a;
+id x = @learn x;
+
+requiredId x = x;

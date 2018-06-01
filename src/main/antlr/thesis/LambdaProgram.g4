@@ -55,7 +55,7 @@ lambdaExpression
 
 lambdaApplicationOperand
     : terminal=lambdaLiteral
-    | LEARN_KEYWORD
+    | LEARN_KEYWORD expressionOptions?
     | LAMBDA lambdaName+ DOT body=lambdaExpression
     | LET_KEYWORD letBindings IN_KEYWORD body=lambdaExpression
     | REC_KEYWORD name=lambdaName IN_KEYWORD body=lambdaExpression
@@ -115,12 +115,24 @@ lambdaLiteral
     | TYPE_NAME
     ;
 
+expressionOptions
+    : LCBR expressionOption (COMMA expressionOption)* RCBR
+    ;
+
+expressionOption
+    : name=EXPR_NAME EQUALS value=OPTION_NUMBER
+    ;
+
 // Whitespace
 WS : [\t \r\n]+ -> skip;
+
 
 // Identifiers
 TYPE_NAME : UPPER_CASE NAME_CHARACTERS*;
 EXPR_NAME : LOWER_CASE NAME_CHARACTERS*;
+
+// Options
+OPTION_NUMBER : DIGIT+;
 
 // Keywords
 TYPE_KEYWORD : '@type';
@@ -134,6 +146,8 @@ REC_KEYWORD : '@rec';
 EQUALS : '=';
 LBR : '(';
 RBR : ')';
+LCBR : '{';
+RCBR : '}';
 COMMA : ',';
 TYPE_PLUS : '|';
 LAMBDA : '\\';
@@ -145,7 +159,7 @@ SEMICOLON : ';';
 // Comments
 COMMENT : '--' ~('\r' | '\n')* -> skip;
 
-fragment UPPER_CASE : [A-Z];
-fragment LOWER_CASE : [a-z];
-fragment DIGIT : [0-9];
+fragment UPPER_CASE : ('A'..'Z');
+fragment LOWER_CASE : ('a'..'z');
+fragment DIGIT : ('0'..'9');
 fragment NAME_CHARACTERS : LOWER_CASE | UPPER_CASE | DIGIT | '_';
