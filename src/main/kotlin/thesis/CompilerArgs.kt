@@ -23,11 +23,4 @@ class CompilerArgs(parser: ArgParser) {
             "-v", "--verbose",
             help = "Show verbose output"
     ).default(false)
-
-    val mode by parser.mapping(
-            "--compile" to CompilerMode.COMPILE,
-            "--execute" to CompilerMode.EXECUTE,
-            help = "Mode of compiler. Specify --compile to compile program to PyTorch code, " +
-                    "or --execute to run \"main\" method of programs"
-    ).default(CompilerMode.COMPILE)
 }

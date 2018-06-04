@@ -1,6 +1,6 @@
 package thesis.preprocess.spec.parametrised
 
-import thesis.preprocess.results.TypeSig
+import thesis.preprocess.expressions.type.Type
 
 /**
  * Specification of a parametrised trainable expression which is instantiated in python code
@@ -9,12 +9,9 @@ import thesis.preprocess.results.TypeSig
  */
 data class ParametrisedTrainableSpec(
         val options: Map<String, Any>,
-        val arguments: List<TypeSig>,
-        val toType: TypeSig
+        val arguments: List<Type>,
+        val toType: Type
 ) {
 
-    val signature: TypeSig
-        get() = arguments.foldRight(toType, { sig, res -> TypeSig.Function(sig, res) })
-
-    override fun toString() = "$options: $signature"
+    override fun toString() = "$options"
 }

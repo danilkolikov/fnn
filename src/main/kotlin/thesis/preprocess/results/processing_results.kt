@@ -17,11 +17,7 @@ import thesis.preprocess.expressions.lambda.untyped.UntypedPattern
 import thesis.preprocess.expressions.type.Parametrised
 import thesis.preprocess.expressions.type.Type
 import thesis.preprocess.expressions.type.raw.RawType
-import thesis.preprocess.spec.Spec
-import thesis.preprocess.spec.TypeSpec
 import thesis.preprocess.spec.parametrised.ParametrisedSpec
-import thesis.preprocess.spec.parametrised.ParametrisedTrainableSpec
-import thesis.preprocess.spec.parametrised.Polymorphic
 import thesis.preprocess.spec.typed.TypedSpec
 
 typealias UntypedLambdaWithPatterns = LambdaWithPatterns<UntypedLambda, UntypedPattern>
@@ -63,6 +59,7 @@ data class InferredExpressions(
         val lambdaDefinitions: LinkedHashMap<LambdaName, InferredLambda>
 )
 
+typealias InstanceSignature = List<LambdaName>
 
 /**
  * Specification of program. Basically, it's the set of instances of lambda expressions, types and
@@ -71,26 +68,14 @@ data class InferredExpressions(
  * @author Danil Kolikov
  */
 data class ParametrisedSpecs(
-        val types: Instances<Polymorphic<AlgebraicType>>,
-        val expressions: Instances<Polymorphic<ParametrisedSpec>>
-)
-
-/**
- * Specification of executable program. For every expression there is a resolved information about stack,
- * variables point on a specific place on stack
- *
- * @author Danil Kolikov
- */
-data class Specs(
-        val typeSpecs: Instances<TypeSpec>,
-        val instances: Instances<Spec>,
-        val parametrisedInstances: Instances<ParametrisedSpec>
+        val types: LinkedHashMap<TypeName, AlgebraicType>,
+        val expressions: LinkedHashMap<InstanceSignature, ParametrisedSpec>
 )
 
 /**
  * Specification of a program that can be compiled to PyTorch.
  */
 data class TypedSpecs(
-        val types: Instances<Polymorphic<AlgebraicType>>,
-        val expressions: Instances<Polymorphic<TypedSpec>>
+        val types: LinkedHashMap<TypeName, AlgebraicType>,
+        val expressions: LinkedHashMap<InstanceSignature, TypedSpec>
 )

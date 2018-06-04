@@ -27,21 +27,24 @@ class ConstructorPattern(BasePattern):
         self.operands = operands
 
     def get_trees(self, tree):
-        rows = tree.tensor.size()[0]
-        presence = torch.ones(rows)
+        rows = tree.rows()
+        # Presence of this constructor
+        presence = tree.tensor[:, self.position]
+        product = tree.children[self.position]
         trees = []
-        before = sum(map(lambda o: o.size(), tree.type.operands[:self.position]))
-        cur = before
-        for (pattern, child) in zip(self.operands, tree.children[before:]):
+        if product is None:
+            # Pattern is not matched
+            return torch.zeros(rows), []
+        # Presence of children
+        for (cur, (pattern, child)) in enumerate(zip(self.operands, product.children)):
             if child is None:
                 # Missing child - pattern is not matched
                 return torch.zeros(rows), []
             else:
                 (child_presence, child_trees) = pattern.get_trees(child)
 
-                presence = presence * child_presence * tree.tensor[:, cur]
+                presence = presence * child_presence * product.tensor[:, cur]
                 trees.extend(child_trees)
-                cur += 1
 
         return presence, trees
 
@@ -54,9 +57,7 @@ class LitPattern(BasePattern):
         self.position = position
 
     def get_trees(self, tree):
-        before = sum(map(lambda o: o.size(), tree.type.operands[:self.position]))
-
-        presence = tree.tensor[:, before]
+        presence = tree.tensor[:, self.position]
         return presence, []
 
     def __repr__(self):
@@ -65,8 +66,7 @@ class LitPattern(BasePattern):
 
 class VarPattern(BasePattern):
     def get_trees(self, tree):
-        rows = tree.tensor.size()[0]
-        return torch.ones(rows), [tree]
+        return torch.ones(tree.rows()), [tree]
 
     def __repr__(self):
         return "VarPattern()"

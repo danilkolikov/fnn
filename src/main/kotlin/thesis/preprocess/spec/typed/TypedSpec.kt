@@ -2,16 +2,11 @@ package thesis.preprocess.spec.typed
 
 import thesis.preprocess.expressions.LambdaName
 import thesis.preprocess.expressions.TypeName
-import thesis.preprocess.expressions.TypeVariableName
 import thesis.preprocess.expressions.Typed
 import thesis.preprocess.expressions.type.Type
-import thesis.preprocess.results.InstanceName
 import thesis.preprocess.results.InstanceSignature
-import thesis.preprocess.results.TypeSig
-import thesis.preprocess.results.TypeSignature
 import thesis.preprocess.spec.DataPointer
 import thesis.preprocess.spec.parametrised.ParametrisedTrainableSpec
-import thesis.preprocess.spec.parametrised.Polymorphic
 
 
 /**
@@ -42,15 +37,13 @@ sealed class TypedSpec : Typed<Type> {
 
         data class External(
                 val signature: InstanceSignature,
-                val typeSignature: TypeSignature,
-                override val type: Type,
-                val function: Polymorphic<TypedSpec>
+                override val type: Type
         ) : TypedSpec.Variable()
     }
 
     data class Object(
             override val type: Type,
-            val toType: InstanceName,
+            val toType: Type.Application,
             val position: Int
     ) : TypedSpec() {
 
@@ -75,7 +68,7 @@ sealed class TypedSpec : Typed<Type> {
         data class Constructor(
                 val name: TypeName,
                 override val type: Type,
-                val toType: InstanceName,
+                val toType: Type.Application,
                 val position: Int
         ) : Function() {
 
@@ -87,7 +80,6 @@ sealed class TypedSpec : Typed<Type> {
         data class Guarded(
                 val name: LambdaName,
                 override val type: Type,
-                val toType: TypeSig,
                 val cases: List<Case>
         ) : Function() {
 
@@ -116,7 +108,6 @@ sealed class TypedSpec : Typed<Type> {
         data class Recursive(
                 val name: LambdaName,
                 val body: TypedSpec,
-                val toType: TypeSig,
                 override val type: Type,
                 override val closurePointer: DataPointer
         ) : Function() {

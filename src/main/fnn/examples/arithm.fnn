@@ -12,7 +12,7 @@ requiredMinusOne (S x) = x;
 
 @type plus = N -> N -> N;
 plus Z y = @learn y;
-plus (S x) y = @learn (plus x (@learn y));
+plus (S x) y = @learn{to_depth=2} (plus x (@learn y));
 
 plusRequired Z b = b;
 plusRequired (S x) b = S (plusRequired x b);

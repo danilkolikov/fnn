@@ -1,11 +1,48 @@
+from abc import abstractmethod
+
 import torch
 from torch.autograd import Function
 from torch.nn.functional import softmax, sigmoid
 
-from .types import LitSpec, ProdSpec
+from ..types import LitSpec, ProdSpec
 
 
-class TypedSigmoid(Function):
+class TypedFunction(Function):
+    """
+    Activation function that uses type information.
+    First argument of forward call should specify ADT
+    """
+
+    @staticmethod
+    @abstractmethod
+    def forward(ctx, data_type, input):
+        pass
+
+    @staticmethod
+    @abstractmethod
+    def backward(ctx, grad_output):
+        pass
+
+
+class TypedLinear(TypedFunction):
+    """
+    Linear activation, doesn't do any transformation of input
+    """
+
+    @staticmethod
+    def forward(ctx, data_type, input):
+        return input
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        return grad_output
+
+
+class TypedSigmoid(TypedFunction):
+    """
+    Generalisation of sigmoid and Softmax activation functions.
+    Type specifies restriction on tensor components
+    """
 
     @staticmethod
     def forward(ctx, data_type, input):
@@ -67,6 +104,8 @@ class TypedSigmoid(Function):
         result = prod_grad + sigma_grad
         return None, grad_output.unsqueeze(1).matmul(result).squeeze(1)
 
+
+typedLinear = TypedLinear.apply
 
 typedSigmoid = TypedSigmoid.apply
 

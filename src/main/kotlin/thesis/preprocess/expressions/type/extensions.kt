@@ -6,8 +6,6 @@
 package thesis.preprocess.expressions.type
 
 import thesis.preprocess.expressions.TypeVariableName
-import thesis.preprocess.results.TypeSignature
-import thesis.preprocess.results.toSignature
 
 fun Parametrised<Type>.instantiate(
         typeParams: Map<TypeVariableName, Type>
@@ -23,6 +21,3 @@ fun Parametrised<Type>.instantiate(
     )
 }
 
-fun Parametrised<Type>.typeSignature(): TypeSignature = initialParameters.map {
-    (typeParams[it] ?: Type.Variable(it)).toSignature()
-}

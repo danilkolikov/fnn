@@ -7,10 +7,8 @@ import thesis.preprocess.expressions.Typed
 import thesis.preprocess.expressions.algebraic.type.AlgebraicType
 import thesis.preprocess.expressions.type.Parametrised
 import thesis.preprocess.expressions.type.Type
-import thesis.preprocess.expressions.type.instantiate
-import thesis.preprocess.results.*
+import thesis.preprocess.results.InstanceSignature
 import thesis.preprocess.spec.ParametrizedPattern
-import thesis.preprocess.spec.instantiate
 
 /**
  * Parametrised specification of eagerly evaluated expression
@@ -21,11 +19,6 @@ sealed class ParametrisedSpec : Typed<Parametrised<Type>> {
 
     abstract val instancePath: List<LambdaName>
 
-    abstract fun instantiate(
-            typeParams: Map<TypeVariableName, Type>,
-            instances: Instances<Polymorphic<ParametrisedSpec>>
-    ): ParametrisedSpec
-
     fun isInstantiated() = type.isInstantiated
 
     data class Variable(
@@ -33,15 +26,6 @@ sealed class ParametrisedSpec : Typed<Parametrised<Type>> {
             override val instancePath: List<LambdaName>,
             override val type: Parametrised<Type>
     ) : ParametrisedSpec() {
-
-        override fun instantiate(
-                typeParams: Map<TypeVariableName, Type>,
-                instances: Instances<Polymorphic<ParametrisedSpec>>
-        ) = Variable(
-                name,
-                instancePath,
-                type.instantiate(typeParams)
-        )
 
         override fun toString() = name
     }
@@ -55,16 +39,6 @@ sealed class ParametrisedSpec : Typed<Parametrised<Type>> {
 
         override val instancePath = listOf(name)
 
-        override fun instantiate(
-                typeParams: Map<TypeVariableName, Type>,
-                instances: Instances<Polymorphic<ParametrisedSpec>>
-        ) = Object(
-                name,
-                algebraicType,
-                position,
-                type.instantiate(typeParams)
-        )
-
         override fun toString() = "[$name: $type]"
     }
 
@@ -76,16 +50,6 @@ sealed class ParametrisedSpec : Typed<Parametrised<Type>> {
                 override val instancePath: List<LambdaName>,
                 override val type: Parametrised<Type>
         ) : Function() {
-
-            override fun instantiate(
-                    typeParams: Map<TypeVariableName, Type>,
-                    instances: Instances<thesis.preprocess.spec.parametrised.Polymorphic<ParametrisedSpec>>
-            ) = Trainable(
-                    instanceSignature,
-                    trainableSpec,
-                    instancePath,
-                    type.instantiate(typeParams)
-            )
 
             override fun toString() = "[@learn : $type]"
         }
@@ -99,16 +63,6 @@ sealed class ParametrisedSpec : Typed<Parametrised<Type>> {
 
             override val instancePath = listOf(name)
 
-            override fun instantiate(
-                    typeParams: Map<TypeVariableName, Type>,
-                    instances: Instances<thesis.preprocess.spec.parametrised.Polymorphic<ParametrisedSpec>>
-            ) = Constructor(
-                    name,
-                    algebraicType,
-                    position,
-                    type.instantiate(typeParams)
-            )
-
             override fun toString() = "[name : $type]"
         }
 
@@ -120,15 +74,6 @@ sealed class ParametrisedSpec : Typed<Parametrised<Type>> {
 
             override val instancePath = listOf(name)
 
-            override fun instantiate(
-                    typeParams: Map<TypeVariableName, Type>,
-                    instances: Instances<thesis.preprocess.spec.parametrised.Polymorphic<ParametrisedSpec>>
-            ) = Guarded(
-                    name,
-                    cases.map { it.instantiate(typeParams, instances) },
-                    type.instantiate(typeParams)
-            )
-
             override fun toString() = "($name: ${cases.joinToString("; ")})"
 
             class Case(
@@ -136,54 +81,18 @@ sealed class ParametrisedSpec : Typed<Parametrised<Type>> {
                     val body: ParametrisedSpec
             ) {
 
-                fun instantiate(
-                        typeParams: Map<TypeVariableName, Type>,
-                        instances: Instances<thesis.preprocess.spec.parametrised.Polymorphic<ParametrisedSpec>>
-                ) = Case(
-                        patterns.map { it.instantiate(typeParams) },
-                        body.instantiate(typeParams, instances)
-                )
-
                 override fun toString() = "${patterns.joinToString(" ")} -> $body"
             }
         }
 
         data class Polymorphic(
                 val name: LambdaName,
-                val expression: thesis.preprocess.spec.parametrised.Polymorphic<ParametrisedSpec>,
+                val expression: ParametrisedSpec,
                 val instanceTypeParams: Map<TypeVariableName, Type>,
                 val signature: InstanceSignature,
-                val typeSignature: TypeSignature,
                 override val instancePath: List<LambdaName>,
                 override val type: Parametrised<Type>
         ) : Function() {
-
-            override fun instantiate(
-                    typeParams: Map<TypeVariableName, Type>,
-                    instances: Instances<thesis.preprocess.spec.parametrised.Polymorphic<ParametrisedSpec>>
-            ): ParametrisedSpec {
-                val params = typeParams.mapValues { (_, v) -> v.toSignature() }
-                val newTypeSignature = typeSignature.map { it.replace(params) }
-                val name = InstanceName(signature, newTypeSignature)
-                val instance = instances[name]
-                        ?: thesis.preprocess.spec.parametrised.Polymorphic.Instance(
-                                expression.item.instantiate(typeParams, instances),
-                                expression,
-                                name,
-                                params
-                        )
-                instances.putIfAbsent(signature, newTypeSignature, instance)
-                return Polymorphic(
-                        this.name,
-                        instance,
-                        instanceTypeParams + typeParams,
-                        signature,
-                        newTypeSignature,
-                        instancePath,
-                        instance.item.type
-                )
-            }
-
             override fun toString() = "(poly: $expression)"
         }
 
@@ -193,15 +102,6 @@ sealed class ParametrisedSpec : Typed<Parametrised<Type>> {
                 override val instancePath: List<LambdaName>,
                 override val type: Parametrised<Type>
         ) : Function() {
-
-            override fun instantiate(typeParams: Map<TypeVariableName, Type>, instances: Instances<thesis.preprocess.spec.parametrised.Polymorphic<ParametrisedSpec>>) = Anonymous(
-                    arguments
-                            .map { (name, type) -> name to type.instantiate(typeParams) }
-                            .toMap(LinkedHashMap()),
-                    body.instantiate(typeParams, instances),
-                    instancePath,
-                    type.instantiate(typeParams)
-            )
 
             override fun toString() = "($body)"
         }
@@ -213,13 +113,6 @@ sealed class ParametrisedSpec : Typed<Parametrised<Type>> {
                 override val type: Parametrised<Type>
         ) : Function() {
 
-            override fun instantiate(typeParams: Map<TypeVariableName, Type>, instances: Instances<thesis.preprocess.spec.parametrised.Polymorphic<ParametrisedSpec>>) = Recursive(
-                    argument,
-                    body.instantiate(typeParams, instances),
-                    instancePath,
-                    type.instantiate(typeParams)
-            )
-
             override fun toString() = "(rec: $body)"
         }
     }
@@ -230,15 +123,6 @@ sealed class ParametrisedSpec : Typed<Parametrised<Type>> {
             override val type: Parametrised<Type>
     ) : ParametrisedSpec() {
 
-        override fun instantiate(
-                typeParams: Map<TypeVariableName, Type>,
-                instances: Instances<Polymorphic<ParametrisedSpec>>
-        ) = Application(
-                operands.map { it.instantiate(typeParams, instances) },
-                instancePath,
-                type.instantiate(typeParams)
-        )
-
         override fun toString() = "(${operands.joinToString(" ")})"
     }
 
@@ -248,16 +132,6 @@ sealed class ParametrisedSpec : Typed<Parametrised<Type>> {
             override val instancePath: InstanceSignature,
             override val type: Parametrised<Type>
     ) : ParametrisedSpec() {
-
-        override fun instantiate(
-                typeParams: Map<TypeVariableName, Type>,
-                instances: Instances<Polymorphic<ParametrisedSpec>>
-        ) = LetAbstraction(
-                expression.instantiate(typeParams, instances),
-                bindings,
-                instancePath,
-                type.instantiate(typeParams)
-        )
 
         override fun toString() = "(let: $expression)"
     }

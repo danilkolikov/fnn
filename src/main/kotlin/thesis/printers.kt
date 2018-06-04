@@ -11,16 +11,11 @@ import thesis.preprocess.results.ParametrisedSpecs
 interface PrettyPrinter {
 
     fun print(inferredExpressions: InferredExpressions)
-
-    fun print(parametrisedSpecs: ParametrisedSpecs)
 }
 
 class NoOpPrettyPrinter : PrettyPrinter {
 
     override fun print(inferredExpressions: InferredExpressions) {
-    }
-
-    override fun print(parametrisedSpecs: ParametrisedSpecs) {
     }
 }
 
@@ -48,25 +43,6 @@ class ConsolePrettyPrinter : PrettyPrinter {
             println("Defined expressions: ")
             inferredExpressions.lambdaDefinitions.forEach { name, expr ->
                 println("    $name : ${expr.type}")
-            }
-            println()
-        }
-    }
-
-    override fun print(parametrisedSpecs: ParametrisedSpecs) {
-        if (!parametrisedSpecs.types.isEmpty()) {
-            println("Type Instances: ")
-            parametrisedSpecs.types.forEach { _, params, type ->
-                val typeName = if (params.isEmpty()) type.item.name else "${type.item.name} ${params.joinToString(" ")}"
-                println("    $typeName")
-            }
-            println()
-        }
-        if (!parametrisedSpecs.expressions.isEmpty()) {
-            println("Expression instances: ")
-            parametrisedSpecs.expressions.forEach { names, _, expression ->
-                val name = "${names.joinToString("→")} : ${expression.item.type}"
-                println("    $name")
             }
             println()
         }
