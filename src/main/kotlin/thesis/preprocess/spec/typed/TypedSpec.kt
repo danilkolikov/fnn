@@ -78,14 +78,12 @@ sealed class TypedSpec : Typed<Type> {
         }
 
         data class Guarded(
-                val name: LambdaName,
                 override val type: Type,
-                val cases: List<Case>
+                val cases: List<Case>,
+                override val closurePointer: DataPointer
         ) : Function() {
 
-            override val closurePointer = DataPointer.START // Defined in the global scope
-
-            override fun toString() = "($name = ${cases.joinToString(", ")})"
+            override fun toString() = "(${cases.joinToString(", ")})"
 
             class Case(
                     val pattern: PatternInstance,
@@ -108,6 +106,7 @@ sealed class TypedSpec : Typed<Type> {
         data class Recursive(
                 val name: LambdaName,
                 val body: TypedSpec,
+                val isTailRecursive: Boolean,
                 override val type: Type,
                 override val closurePointer: DataPointer
         ) : Function() {

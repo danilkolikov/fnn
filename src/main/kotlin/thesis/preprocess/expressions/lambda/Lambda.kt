@@ -42,4 +42,14 @@ interface Lambda : Expression {
         val function: E
         val arguments: List<E>
     }
+
+    interface CaseAbstraction<out E: Lambda> : Lambda {
+        val expression: E
+        val cases: List<CaseAbstraction.Case<E>>
+
+        interface Case<out E: Lambda> {
+            val pattern: Pattern
+            val expression: E
+        }
+    }
 }

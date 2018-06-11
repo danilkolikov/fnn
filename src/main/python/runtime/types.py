@@ -71,7 +71,7 @@ class ExtSpec(BaseTypeSpec):
     def __repr__(self):
         if len(self.args) == 0:
             return self.name
-        return '(' + self.name + ' ' + ' '.join(self.args.values()) + ')'
+        return '(' + self.name + ' ' + ' '.join(map(lambda t: str(t), self.args.values())) + ')'
 
 
 class ProdSpec(BaseTypeSpec):

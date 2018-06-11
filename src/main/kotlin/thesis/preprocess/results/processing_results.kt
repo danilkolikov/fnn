@@ -44,7 +44,8 @@ typealias TypedLambdaWithPatterns = LambdaWithPatterns<TypedLambda<Type>, TypedP
 data class InferredLambda(
         val type: Parametrised<Type>,
         val expressions: List<TypedLambdaWithPatterns>,
-        val isRecursive: Boolean
+        val isRecursive: Boolean,
+        val isTailRecursive: Boolean
 )
 
 

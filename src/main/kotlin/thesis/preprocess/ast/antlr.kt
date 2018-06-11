@@ -86,7 +86,8 @@ fun LambdaProgramParser.LambdaDefinitionContext.toAst(): LambdaDefinition {
     return LambdaDefinition(
             name.text,
             patterns,
-            expression
+            expression,
+            TAILREC_KEYWORD() != null
     )
 }
 
@@ -123,6 +124,14 @@ fun LambdaProgramParser.LambdaApplicationOperandContext.toAst(): UntypedLambda {
         return UntypedLambda.RecAbstraction(
                 UntypedLambda.Literal(name),
                 body
+        )
+    }
+    if (CASE_KEYWORD() != null && expr != null && OF_KEYWORD() != null) {
+        val expr = expr.toAst()
+        val cases = casesExpr().toAst()
+        return UntypedLambda.CaseAbtraction(
+                expr,
+                cases
         )
     }
     if (expr != null && type != null) {
@@ -224,3 +233,10 @@ fun LambdaProgramParser.ExpressionOptionsContext.toAst(): Map<String, Any> =
 
 fun LambdaProgramParser.ExpressionOptionContext.toAst(): Pair<String, Any> =
         name.text to value.text.toInt()
+
+fun LambdaProgramParser.CasesExprContext.toAst() = caseExpr().map { it.toAst() }
+
+fun LambdaProgramParser.CaseExprContext.toAst() = UntypedLambda.CaseAbtraction.Case(
+        patternExpression().toAst(),
+        lambdaExpression().toAst()
+)

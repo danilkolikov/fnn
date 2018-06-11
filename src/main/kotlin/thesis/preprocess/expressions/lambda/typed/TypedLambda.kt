@@ -142,6 +142,35 @@ sealed class TypedLambda<T : Implication<T>> : Lambda, Typed<Parametrised<T>> {
 
         override fun toString() = "($function ${arguments.joinToString(" ")} : $type)"
     }
+
+    data class CaseAbstraction<T : Implication<T>>(
+            override val expression: TypedLambda<T>,
+            override val cases: List<Case<T>>,
+            override val type: Parametrised<T>
+    ): TypedLambda<T>(), Lambda.CaseAbstraction<TypedLambda<T>> {
+
+        override fun <S : Implication<S>> modifyType(
+                preserveParameters: Boolean,
+                action: (T) -> S
+        ) = CaseAbstraction(
+                expression.modifyType(preserveParameters, action),
+                cases.map { it.modifyType(preserveParameters, action) },
+                type.modifyType(preserveParameters, action)
+        )
+
+        data class Case<T: Implication<T>>(
+                override val pattern: TypedPattern<T>,
+                override val expression: TypedLambda<T>
+        ): Lambda.CaseAbstraction.Case<TypedLambda<T>> {
+            fun <S : Implication<S>> modifyType(
+                    preserveParameters: Boolean = true,
+                    action: (T) -> S
+            ): Case<S> = Case(
+                    pattern.modifyType(preserveParameters, action),
+                    expression.modifyType(preserveParameters, action)
+            )
+        }
+    }
 }
 
 

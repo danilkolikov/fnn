@@ -67,14 +67,12 @@ sealed class ParametrisedSpec : Typed<Parametrised<Type>> {
         }
 
         data class Guarded(
-                val name: LambdaName,
+                override val instancePath: InstanceSignature,
                 val cases: List<Case>,
                 override val type: Parametrised<Type>
         ) : Function() {
 
-            override val instancePath = listOf(name)
-
-            override fun toString() = "($name: ${cases.joinToString("; ")})"
+            override fun toString() = "($instancePath: ${cases.joinToString("; ")})"
 
             class Case(
                     val patterns: List<ParametrizedPattern>,
@@ -109,6 +107,7 @@ sealed class ParametrisedSpec : Typed<Parametrised<Type>> {
         data class Recursive(
                 val argument: LambdaName,
                 val body: ParametrisedSpec,
+                val isTailRecursive: Boolean,
                 override val instancePath: List<LambdaName>,
                 override val type: Parametrised<Type>
         ) : Function() {

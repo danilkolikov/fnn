@@ -27,13 +27,14 @@ object PyTorchWriter {
             +"from .runtime import trees"
             +"from .runtime import loss"
             +"from .runtime.modules import ConstantLayer, VariableLayer, AnonymousNetLayer, ConstructorLayer, GuardedLayer, \\"
-            +"    ApplicationLayer, RecursiveLayer, TrainableLayer"
+            +"    ApplicationLayer, RecursiveLayer, TrainableLayer, ZeroLayer"
             +"from .runtime.data import DataPointer, DataBag"
             +"from .runtime.types import TypeSpec, LitSpec, ProdSpec, VarSpec, ExtSpec"
             +"from .runtime.patterns import VarPattern, LitPattern, ConstructorPattern"
             +""
             +"DEFINED_TYPES = {}"
             +"TrainableLayer = TrainableLayer.bind_defined_types(DEFINED_TYPES)"
+            +"ZeroLayer = ZeroLayer.bind_defined_types(DEFINED_TYPES)"
             if (!data.types.isEmpty()) {
                 +""
                 +"# Defined Types"
@@ -109,15 +110,13 @@ object PyTorchWriter {
             +"RecursiveLayer("
             indent {
                 writePython(spec.body)
-                val fromType = spec.type.getArguments()
                 val toType = spec.type.getResultType()
-                val overflowHandler = TypedSpec.Function.Trainable(
-                        emptyList(),
-                        ParametrisedTrainableSpec(emptyMap(), fromType, toType),
-                        spec.type,
-                        DataPointer.START
-                ).toPythonObject()
-                appendLnWithoutIndent(", $overflowHandler, ${spec.closurePointer.toPython()}")
+
+                var lastLine = ", ZeroLayer(${toType.toPythonObject()}), ${spec.closurePointer.toPython()}"
+                if (spec.isTailRecursive) {
+                    lastLine += ", is_tail_recursive=True"
+                }
+                appendLnWithoutIndent(lastLine)
             }
             -")"
         }
@@ -129,14 +128,7 @@ object PyTorchWriter {
             -"ConstructorLayer(to_type=$toType, position=${spec.position})"
         }
         is TypedSpec.Function.Guarded -> {
-            val fromType = spec.type.getArguments()
             val toType = spec.type.getResultType()
-            val mismatchHandler = TypedSpec.Function.Trainable(
-                    emptyList(),
-                    ParametrisedTrainableSpec(emptyMap(), fromType, toType),
-                    spec.type,
-                    DataPointer.START
-            ).toPythonObject()
             +"GuardedLayer("
             indent {
                 +"cases=["
@@ -147,7 +139,8 @@ object PyTorchWriter {
                     }
                 }
                 +"],"
-                +"mismatch_handler=$mismatchHandler"
+                +"mismatch_handler=ZeroLayer(${toType.toPythonObject()}),"
+                +"pointer=${spec.closurePointer.toPython()}"
             }
             -")"
         }

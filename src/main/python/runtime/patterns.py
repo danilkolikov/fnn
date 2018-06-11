@@ -34,17 +34,26 @@ class ConstructorPattern(BasePattern):
         trees = []
         if product is None:
             # Pattern is not matched
-            return torch.zeros(rows), []
+            return None, []
         # Presence of children
         for (cur, (pattern, child)) in enumerate(zip(self.operands, product.children)):
             if child is None:
                 # Missing child - pattern is not matched
-                return torch.zeros(rows), []
+                return None, []
             else:
-                (child_presence, child_trees) = pattern.get_trees(child)
-
-                presence = presence * child_presence * product.tensor[:, cur]
-                trees.extend(child_trees)
+                scale = product.tensor[:, cur]
+                if isinstance(pattern, LitPattern):
+                    child_presence, _ = pattern.get_trees(child)
+                    child_presence = child_presence * scale
+                else:
+                    scale = scale.view(rows, 1)
+                    (child_presence, child_trees) = pattern.get_trees(child)
+                    if child_presence is None:
+                        # Child is not matched
+                        return None, []
+                    scaled_children = [c.cmul(scale) for c in child_trees]
+                    trees.extend(scaled_children)
+                presence = presence * child_presence
 
         return presence, trees
 

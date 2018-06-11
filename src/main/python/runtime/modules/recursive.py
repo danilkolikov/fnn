@@ -8,15 +8,17 @@ class RecursiveLayer(FunctionalModule):
     """
     DEPTH = 50
 
-    def __init__(self, net, depth_handler, pointer):
+    def __init__(self, net, depth_handler, pointer, is_tail_recursive=False):
         super().__init__()
         self.net = net
         self.depth_handler = depth_handler
         self.pointer = pointer
+        self.is_tail_recursive = is_tail_recursive
         self.add_module('inner', net)
 
     def forward(self, data_bag):
-        limited = LimitedRecursiveLayer(
+        layer = TailRecursiveLayer if self.is_tail_recursive else LimitedRecursiveLayer
+        limited = layer(
             self.net,
             self.depth_handler,
             DataPointer(self.pointer.data, self.pointer.nets + 1)
@@ -28,7 +30,7 @@ class RecursiveLayer(FunctionalModule):
 
 class LimitedRecursiveLayer(FunctionalModule):
     """
-    Recursive layer with limitation of the depth of recursion
+    General recursive layer with limitation of the depth of recursion
     """
 
     def __init__(self, net, depth_handler, pointer):
@@ -43,5 +45,47 @@ class LimitedRecursiveLayer(FunctionalModule):
         self.depth += 1
         if self.depth > RecursiveLayer.DEPTH:
             # If the depth of recursion is too big, call the handler instead of itself
-            return self.depth_handler.forward(data_bag)
+            _, args = data_bag.split(self.pointer)
+            return self.depth_handler.forward(args)
         return self.net.forward(data_bag)
+
+
+class TailRecursiveLayer(FunctionalModule):
+    """
+    Layer for tail recursion with higher limitation of the depth of recursion
+    """
+
+    DEPTH = 200
+
+    def __init__(self, net, depth_handler, pointer):
+        super().__init__()
+        self.net = net
+        self.depth_handler = depth_handler
+        self.pointer = pointer
+        self.add_module('net', net)
+
+        self.stored_args = None
+        self.in_recursion = False
+
+    def forward(self, data_bag):
+        if not self.in_recursion:
+            self.in_recursion = True
+            self.stored_args = data_bag
+        else:
+            self.stored_args = data_bag
+            return None
+        for i in range(self.DEPTH):
+            result = self.net.forward(self.stored_args)
+            if result is None:
+                continue
+            # The bottom reached
+            self.in_recursion = False
+            self.stored_args = None
+            return result
+
+        # The depth of recursion is too big, call the handler instead of itself
+        args = self.stored_args
+        _, args = args.split(self.pointer)
+        self.in_recursion = False
+        self.stored_args = None
+        return self.depth_handler.forward(args)

@@ -1,5 +1,5 @@
 import torch
-from .trees import SumTree, ProdTree, empty_tree
+from .trees import SumTree, ProdTree, empty_tree, make_tuple
 
 
 class DataPointer:
@@ -39,6 +39,8 @@ class DataBag:
         return self.nets[pos]
 
     def next_scope(self, pointer, data_bag):
+        before, after = self.split(pointer)
+        return before.append(data_bag)
         if pointer.data == 0:
             data = data_bag.data
         else:
@@ -63,6 +65,35 @@ class DataBag:
 
         nets = [*self.nets[0:pointer.nets], *data_bag.nets]
         return DataBag(data, nets, data_bag.size)
+
+    def split(self, pointer):
+        """
+        Splits this DataBag to 2 - one before pointer and one after
+
+        :param pointer: DataPointer
+        :return: Pair of DataBags
+        """
+        if len(self.data.children) == 0:
+            data_before = make_tuple([])
+            data_after = make_tuple([])
+        else:
+            data_before = make_tuple(self.data.children[0].children[0:pointer.data])
+            data_after = make_tuple(self.data.children[0].children[pointer.data:])
+        nets_before = self.nets[0:pointer.nets]
+        nets_after = self.nets[pointer.nets:]
+
+        return DataBag(data_before, nets_before), DataBag(data_after, nets_after)
+
+    def append(self, data_bag):
+        if len(self.data.children) == 0:
+            data = data_bag.data
+        else:
+            if len(data_bag.data.children) == 0:
+                data = self.data
+            else:
+                data = make_tuple([*self.data.children[0].children, *data_bag.data.children[0].children])
+        nets = [*self.nets, *data_bag.nets]
+        return DataBag(data, nets, size=data_bag.size)
 
     empty = None
 

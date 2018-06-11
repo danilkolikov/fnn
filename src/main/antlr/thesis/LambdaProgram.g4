@@ -46,7 +46,7 @@ typeVariable
     ;
 
 lambdaDefinition
-    : name=lambdaName patternExpression* EQUALS lambdaExpression
+    : TAILREC_KEYWORD? name=lambdaName patternExpression* EQUALS lambdaExpression
     ;
 
 lambdaExpression
@@ -59,6 +59,7 @@ lambdaApplicationOperand
     | LAMBDA lambdaName+ DOT body=lambdaExpression
     | LET_KEYWORD letBindings IN_KEYWORD body=lambdaExpression
     | REC_KEYWORD name=lambdaName IN_KEYWORD body=lambdaExpression
+    | CASE_KEYWORD expr=lambdaExpression OF_KEYWORD casesExpr
     | LBR expr=lambdaExpression COLON type=parametrisedTypeDeclaration RBR
     | LBR inner=lambdaExpression RBR
     ;
@@ -68,6 +69,14 @@ letBindings
     ;
 letBinding
     : lambdaName EQUALS lambdaExpression
+    ;
+
+casesExpr
+    : caseExpr (COMMA caseExpr)*
+    ;
+
+caseExpr
+    : patternExpression ARROW lambdaExpression
     ;
 
 lambdaTypeDeclaration
@@ -141,6 +150,9 @@ LET_KEYWORD: '@let';
 IN_KEYWORD: '@in';
 FORALL_KEYWORD: '@forall';
 REC_KEYWORD : '@rec';
+CASE_KEYWORD : '@case';
+OF_KEYWORD : '@of';
+TAILREC_KEYWORD : '@tailrec';
 
 // Special characters
 EQUALS : '=';

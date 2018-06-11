@@ -3,7 +3,10 @@ package thesis.preprocess.spec.parametrised
 import thesis.preprocess.Processor
 import thesis.preprocess.expressions.LambdaName
 import thesis.preprocess.expressions.TypeName
+import thesis.preprocess.expressions.lambda.LambdaWithPatterns
 import thesis.preprocess.expressions.lambda.typed.TypedLambda
+import thesis.preprocess.expressions.lambda.typed.TypedPattern
+import thesis.preprocess.expressions.type.Parametrised
 import thesis.preprocess.expressions.type.Type
 import thesis.preprocess.results.InferredExpressions
 import thesis.preprocess.results.InstanceSignature
@@ -53,8 +56,8 @@ class ParametrisedSpecCompiler : Processor<InferredExpressions, ParametrisedSpec
 
         // Add expressions
         data.lambdaDefinitions.forEach { name, lambda ->
-            val cases = mutableListOf<ParametrisedSpec.Function.Guarded.Case>()
 
+            val path = listOf(name)
             val variables = if (lambda.isRecursive) mapOf(
                     name to ParametrisedSpec.Variable(
                             name,
@@ -62,42 +65,14 @@ class ParametrisedSpecCompiler : Processor<InferredExpressions, ParametrisedSpec
                             lambda.type
                     )
             ) else emptyMap()
-            lambda.expressions.forEach { (patterns, lambda) ->
-
-                val newVariables = variables + patterns.flatMap { it.getTypedVariables().toList() }
-                        .map {
-                            it.first to ParametrisedSpec.Variable(
-                                    it.first,
-                                    listOf(name),
-                                    it.second
-                            )
-                        }
-                        .toMap()
-
-                val case = lambda.compile(
-                        newVariables,
-                        compiled,
-                        listOf(name),
-                        instances
-                )
-                val application = if (case is ParametrisedSpec.Function.Polymorphic) {
-                    // It's a call of functions, it's better to wrap into Application
-                    ParametrisedSpec.Application(
-                            listOf(case),
-                            listOf(name),
-                            case.type
-                    )
-                } else case
-
-                cases.add(ParametrisedSpec.Function.Guarded.Case(
-                        patterns,
-                        application
-                ))
-            }
-            val guarded = ParametrisedSpec.Function.Guarded(name, cases, lambda.type)
+            val cases = lambda.expressions.map { it.compile(
+                    variables, compiled, path, instances
+            ) }
+            val guarded = ParametrisedSpec.Function.Guarded(path, cases, lambda.type)
             val result = if (lambda.isRecursive) ParametrisedSpec.Function.Recursive(
                     name,
                     guarded,
+                    lambda.isTailRecursive,
                     listOf(name),
                     lambda.type
             ) else guarded
@@ -108,6 +83,43 @@ class ParametrisedSpecCompiler : Processor<InferredExpressions, ParametrisedSpec
         return ParametrisedSpecs(
                 data.typeDefinitions,
                 instances
+        )
+    }
+
+    private fun LambdaWithPatterns<TypedLambda<Type>, TypedPattern<Type>>.compile(
+            variables: Map<LambdaName, ParametrisedSpec.Variable>,
+            compiled: Map<LambdaName, ParametrisedSpec>,
+            instancePath: List<LambdaName>,
+            instances: LinkedHashMap<InstanceSignature, ParametrisedSpec>
+    ): ParametrisedSpec.Function.Guarded.Case {
+        val newVariables = variables + patterns.flatMap { it.getTypedVariables().toList() }
+                .map {
+                    it.first to ParametrisedSpec.Variable(
+                            it.first,
+                            instancePath,
+                            it.second
+                    )
+                }
+                .toMap()
+
+        val case = lambda.compile(
+                newVariables,
+                compiled,
+                instancePath,
+                instances
+        )
+        val application = if (case is ParametrisedSpec.Function.Polymorphic) {
+            // It's a call of a function, it's better to wrap into Application
+            ParametrisedSpec.Application(
+                    listOf(case),
+                    instancePath,
+                    case.type
+            )
+        } else case
+
+        return ParametrisedSpec.Function.Guarded.Case(
+                patterns,
+                application
         )
     }
 
@@ -220,6 +232,26 @@ class ParametrisedSpecCompiler : Processor<InferredExpressions, ParametrisedSpec
                     expression.compile(
                             vars, compiled, instancePath, instances
                     ),
+                    false,
+                    instancePath,
+                    type
+            )
+        }
+        is TypedLambda.CaseAbstraction -> {
+            val expr = expression.compile(
+                    variables, compiled, instancePath, instances
+            )
+            val cases = cases.map { LambdaWithPatterns(listOf(it.pattern), it.expression).compile(
+                    variables, compiled, instancePath, instances
+            ) }
+            val guardedType = Parametrised(
+                    type.parameters,
+                    Type.Function(expr.type.type, type.type),
+                    type.typeParams
+            )
+            val guarded = ParametrisedSpec.Function.Guarded(instancePath, cases, guardedType)
+            ParametrisedSpec.Application(
+                    listOf(guarded, expr),
                     instancePath,
                     type
             )

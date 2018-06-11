@@ -69,9 +69,9 @@ def _create_weights(defined_types, from_type, to_type, from_depth, to_depth):
     Creates trainable OperatorTree and fills it with random values
     """
 
-    def _create_tensors(this_from_type, this_to_type, from_size, to_size):
+    def _create_tensors(type_params, this_from_type, this_to_type, from_size, to_size):
         weights = torch.randn(from_size, to_size)
-        mask, children = _create_weight_mask(this_from_type, this_to_type, from_size, to_size)
+        mask, children = _create_weight_mask(type_params, this_from_type, this_to_type, from_size, to_size)
         # Updated parameters only if we have Sum->Sum or Prod->Prod layers
         need_grad = type(this_from_type) == type(this_to_type)
         tensor = weights * mask
@@ -92,7 +92,7 @@ def _create_bias(defined_types, to_type, to_depth):
     """
     Creates trainable TensorTree and fills it with random values
     """
-    def _create_random_tensor(this_from_type, this_to_type, from_size, to_size):
+    def _create_random_tensor(type_params, this_from_type, this_to_type, from_size, to_size):
         return Parameter(torch.randn(from_size, to_size), requires_grad=True)
 
     return _build_tree(
@@ -100,8 +100,7 @@ def _create_bias(defined_types, to_type, to_depth):
     )
 
 
-def _create_weight_mask(from_type, to_type, from_size, to_size):
-
+def _create_weight_mask(type_params, from_type, to_type, from_size, to_size):
     # Let's set values of the mask using axioms of logic:
     # (a -> T) holds for every a, so we can create a literal using any object - set mask to 1
     # (a -> a) holds for every a, so we can create an object using object of it's type - set mask to 1
@@ -130,6 +129,10 @@ def _create_weight_mask(from_type, to_type, from_size, to_size):
             children = [[False for _ in range(to_size)] for _ in range(from_size)]
             for (row, from_operand) in enumerate(from_type.operands):
                 for (column, to_operand) in enumerate(to_type.operands):
+                    while isinstance(from_operand, VarSpec) and from_operand.name in type_params:
+                        from_operand = type_params[from_operand.name]
+                    while isinstance(to_operand, VarSpec) and to_operand.name in type_params:
+                        to_operand = type_params[to_operand.name]
                     if from_operand == to_operand:
                         mask[row, column] = 1
                         children[row][column] = True
@@ -186,7 +189,7 @@ def _build_operator(defined_types, type_params, from_type, to_type, from_depth, 
                     if operand.name not in defined_types:
                         raise UnknownType(operand.name)
                     next_type = defined_types[operand.name]
-                    next_params = operand.args
+                    next_params = {**type_params, **operand.args}
                     child = _build_operator(
                         defined_types, next_params, next_type, to_type, from_depth - 1, to_depth, tensor_builder
                     )
@@ -210,7 +213,7 @@ def _build_tree(defined_types, type_params, from_type, to_type, to_depth, tensor
 
     from_size = len(from_type.operands)
     to_size = len(to_type.operands)
-    tensor = tensor_builder(from_type, to_type, from_size, to_size)
+    tensor = tensor_builder(type_params, from_type, to_type, from_size, to_size)
 
     if isinstance(to_type, TypeSpec):
         if to_depth == 0:
@@ -244,7 +247,7 @@ def _build_tree(defined_types, type_params, from_type, to_type, to_depth, tensor
                     if operand.name not in defined_types:
                         raise UnknownType(operand.name)
                     next_type = defined_types[operand.name]
-                    next_params = operand.args
+                    next_params = {**type_params, **operand.args}
                     child = _build_tree(
                         defined_types, next_params, from_type, next_type, to_depth - 1, tensor_builder
                     )

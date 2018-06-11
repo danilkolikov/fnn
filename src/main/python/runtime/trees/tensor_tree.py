@@ -417,9 +417,9 @@ def stack(trees):
                     # Add fake tree with equal elements (to support loss function)
                     tree_size = trees[pos].tensor.size()[0]
                     if isinstance(not_none, SumTree):
-                        content = torch.ones(tree_size, child_size) *  (1.0 / child_size)
+                        content = torch.ones(tree_size, child_size) * (1.0 / child_size)
                     else:
-                        content = torch.ones(tree_size, child_size) *  0.5
+                        content = torch.ones(tree_size, child_size) * 0.5
                     to_stack.append(not_none.__class__(
                         content,
                         [None for _ in range(child_size)]
@@ -442,5 +442,6 @@ def make_tuple(operands):
     new_tensor = torch.stack([t.presence() for t in operands], dim=1)
     new_children = operands
     product = ProdTree(new_tensor, new_children)
-    sum_data = product.presence().view(product.rows(), 1)
+    rows, _ = new_tensor.size()
+    sum_data = torch.ones(rows, 1)
     return SumTree(sum_data, [product])

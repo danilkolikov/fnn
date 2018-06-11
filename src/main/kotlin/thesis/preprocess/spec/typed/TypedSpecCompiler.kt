@@ -119,6 +119,7 @@ class TypedSpecCompiler : Processor<ParametrisedSpecs, TypedSpecs> {
                                 typeSpecs,
                                 DataPointer(dataPointer.dataOffset, functionsCount)
                         ),
+                        isTailRecursive,
                         typeInstance,
                         dataPointer
                 )
@@ -194,9 +195,9 @@ class TypedSpecCompiler : Processor<ParametrisedSpecs, TypedSpecs> {
                     )
                 }
                 TypedSpec.Function.Guarded(
-                        name,
                         typeInstance,
-                        cases
+                        cases,
+                        dataPointer
                 )
             }
         }

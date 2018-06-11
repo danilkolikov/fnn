@@ -44,15 +44,11 @@ class ConstructorLayer(FunctionalModule):
         product = data.children[0]
         assert isinstance(product, ProdTree)
 
+        new_tensor = torch.zeros(size, self.length)
+        new_tensor[:, self.position] = 1
+
         size_before = self.position
         size_after = self.length - (self.position + 1)
-        to_cat = []
-        if size_before > 0:
-            to_cat.append(torch.zeros(size, size_before))
-        to_cat.append(product.presence().view(size, 1))
-        if size_after > 0:
-            to_cat.append(torch.zeros(size, size_after))
-        new_tensor = torch.cat(to_cat, 1)
 
         children = [*([None] * size_before), product, *([None] * size_after)]
 

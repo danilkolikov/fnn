@@ -37,7 +37,7 @@ class ApplicationLayer(FunctionalModule):
             called.append(operand)
         for i in range(1, len(self.operands)):
             if i in self.constants:
-                called[i] = called[i](data_bag)
+                called[i] = called[i].forward(data_bag)
 
         net = called[0]
         args = called

@@ -12,3 +12,10 @@ class UnexpectedTypeSpec(ValueError):
 class UnknownType(ValueError):
     def __init__(self, name):
         super(UnknownType, self).__init__('Unknown Type: ' + name)
+
+
+class UnsupportedTypeForZeroObjectCreation(ValueError):
+    def __init__(self, spec):
+        super(UnsupportedTypeForZeroObjectCreation, self).__init__(
+            "Can't create a zero object of type: " + str(spec)
+        )

@@ -3,7 +3,6 @@
 @type Pair a b = MkPair a b;
 @type N = Z | S N;
 
-@type id = a -> a;
-id x = @learn x;
-
-requiredId x = x;
+if flag x y = @case flag @of
+    True -> x,
+    False -> y;
