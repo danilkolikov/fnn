@@ -14,7 +14,9 @@ interface Lambda : Expression {
         val name: String
     }
 
-    interface Trainable : Lambda
+    interface Trainable : Lambda {
+        val options: Map<String, Any>
+    }
 
     interface Abstraction<out E: Lambda> : Lambda {
         val arguments: List<Lambda.Literal>
@@ -39,5 +41,15 @@ interface Lambda : Expression {
     interface Application<out E: Lambda> : Lambda {
         val function: E
         val arguments: List<E>
+    }
+
+    interface CaseAbstraction<out E: Lambda> : Lambda {
+        val expression: E
+        val cases: List<CaseAbstraction.Case<E>>
+
+        interface Case<out E: Lambda> {
+            val pattern: Pattern
+            val expression: E
+        }
     }
 }

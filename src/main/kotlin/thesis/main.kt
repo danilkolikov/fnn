@@ -2,12 +2,10 @@ package thesis
 
 import com.xenomachina.argparser.ArgParser
 import com.xenomachina.argparser.mainBody
-import thesis.eval.DataBag
-import thesis.eval.EvalSpecCompiler
 import thesis.preprocess.ast.ExpressionSorter
 import thesis.preprocess.ast.ReaderParser
-import thesis.preprocess.spec.SpecCompiler
 import thesis.preprocess.spec.parametrised.ParametrisedSpecCompiler
+import thesis.preprocess.spec.typed.TypedSpecCompiler
 import thesis.preprocess.types.TypeInferenceProcessor
 import thesis.pytorch.PyTorchWriter
 import thesis.utils.NameGenerator
@@ -31,28 +29,16 @@ fun main(args: Array<String>) = mainBody {
                 printer.print(inferred)
 
                 val parametrisedSpec = ParametrisedSpecCompiler().process(inferred)
-                printer.print(parametrisedSpec)
 
-                val specs = SpecCompiler().process(parametrisedSpec)
+                val specs = TypedSpecCompiler().process(parametrisedSpec)
+                val filePath = Paths.get(file)
+                val fileName = filePath.fileName
+                val outputFileName = fileName.toString().replaceAfterLast(".", "py")
+                val outputFile = outputDirectory.resolve(outputFileName)
 
-                when (mode) {
-                    CompilerMode.COMPILE -> {
-                        val filePath = Paths.get(file)
-                        val fileName = filePath.fileName
-                        val outputFileName = fileName.toString().replaceAfterLast(".", "py")
-                        val outputFile = outputDirectory.resolve(outputFileName)
-
-                        Files.createDirectories(outputDirectory)
-                        FileWriter(outputFile.toFile()).use {
-                            PyTorchWriter.writeSpecToFile(it, specs)
-                        }
-                    }
-                    CompilerMode.EXECUTE -> {
-                        val compiled = EvalSpecCompiler().process(specs)
-                        compiled[listOf("main"), emptyList()]?.eval(DataBag.EMPTY)?.let {
-                            println(it)
-                        }
-                    }
+                Files.createDirectories(outputDirectory)
+                FileWriter(outputFile.toFile()).use {
+                    PyTorchWriter.writeSpecToFile(it, specs)
                 }
             }
         }

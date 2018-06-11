@@ -12,12 +12,9 @@ import thesis.preprocess.expressions.type.raw.RawType
  */
 sealed class UntypedLambda : Lambda {
 
-    abstract fun getBoundVariables(): Set<String>
-
     data class Literal(
             override val name: LambdaName
     ) : UntypedLambda(), Lambda.Literal {
-        override fun getBoundVariables() = emptySet<String>()
 
         override fun toString() = name
     }
@@ -26,23 +23,24 @@ sealed class UntypedLambda : Lambda {
             val expression: UntypedLambda,
             val type: Parametrised<RawType>
     ) : UntypedLambda() {
-        override fun getBoundVariables() = expression.getBoundVariables()
 
         override fun toString() = "($expression : $type)"
     }
 
-    class Trainable : UntypedLambda(), Lambda.Trainable {
-        override fun getBoundVariables() = emptySet<String>()
+    data class Trainable(
+            override val options: Map<String, Any>
+    ) : UntypedLambda(), Lambda.Trainable {
 
-        override fun toString() = "@learn"
+        override fun toString(): String {
+            return if (options.isEmpty()) "@learn" else
+            "@learn { ${options.entries.joinToString(", ") { "${it.key}: ${it.value}" }} }"
+        }
     }
 
     data class Abstraction(
             override val arguments: List<UntypedLambda.Literal>,
             override val expression: UntypedLambda
     ) : UntypedLambda(), Lambda.Abstraction<UntypedLambda> {
-        override fun getBoundVariables() = arguments.toSet().map { it.name }.toSet() +
-                expression.getBoundVariables()
 
         override fun toString() = "(\\${arguments.joinToString(" ")}. $expression)"
     }
@@ -52,16 +50,12 @@ sealed class UntypedLambda : Lambda {
             override val expression: UntypedLambda
     ) : UntypedLambda(), Lambda.LetAbstraction<UntypedLambda> {
 
-        override fun getBoundVariables() = expression.getBoundVariables() +
-                bindings.flatMap { it.getBoundVariables() }.toSet()
-
         override fun toString() = "@let ${bindings.joinToString(", ")} @in $expression"
 
         data class Binding(
                 override val name: LambdaName,
                 override val expression: UntypedLambda
         ) : Lambda.LetAbstraction.Binding<UntypedLambda> {
-            fun getBoundVariables() = setOf(name) + expression.getBoundVariables()
 
             override fun toString() = "$name = $expression"
         }
@@ -71,7 +65,6 @@ sealed class UntypedLambda : Lambda {
             override val argument: UntypedLambda.Literal,
             override val expression: UntypedLambda
     ) : UntypedLambda(), Lambda.RecAbstraction<UntypedLambda> {
-        override fun getBoundVariables() = setOf(argument.name) + expression.getBoundVariables()
 
         override fun toString() = "(@rec ${argument.name} @in $expression)"
     }
@@ -80,10 +73,23 @@ sealed class UntypedLambda : Lambda {
             override val function: UntypedLambda,
             override val arguments: List<UntypedLambda>
     ) : UntypedLambda(), Lambda.Application<UntypedLambda> {
-        override fun getBoundVariables() = function.getBoundVariables() +
-                arguments.flatMap { it.getBoundVariables() }
 
         override fun toString() = "($function ${arguments.joinToString(" ")})"
+    }
+
+    data class CaseAbtraction(
+            override val expression: UntypedLambda,
+            override val cases: List<Case>
+    ): UntypedLambda(), Lambda.CaseAbstraction<UntypedLambda> {
+
+        override fun toString() = "(@case $expression @of ${cases.joinToString(", ")})"
+
+        data class Case(
+                override val pattern: UntypedPattern,
+                override val expression: UntypedLambda
+        ): Lambda.CaseAbstraction.Case<UntypedLambda> {
+            override fun toString() = "$pattern -> $expression"
+        }
     }
 }
 

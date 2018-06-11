@@ -14,15 +14,19 @@ open class Parametrised<T : Implication<T>>  (
         val initialParameters: List<TypeVariableName> = parameters
 ) {
 
-    fun <S : Implication<S>> modifyType(action: (T) -> S): Parametrised<S> {
+    fun <S : Implication<S>> modifyType(
+            preserveParameters: Boolean = true,
+            action: (T) -> S
+    ): Parametrised<S> {
         val result = action(type)
         val variables = result.getVariables()
-        val newParams = typeParams.mapValues { (_, v) -> action(v) }
+        val newTypeParams = typeParams.mapValues { (_, v) -> action(v) }
+        val newParameters = variables.toList()
         return Parametrised(
-                variables.toList(),
+                newParameters,
                 result,
-                newParams,
-                initialParameters
+                newTypeParams,
+                if (preserveParameters) initialParameters else newParameters
         )
     }
 

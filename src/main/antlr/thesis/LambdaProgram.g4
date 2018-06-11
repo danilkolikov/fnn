@@ -46,7 +46,7 @@ typeVariable
     ;
 
 lambdaDefinition
-    : name=lambdaName patternExpression* EQUALS lambdaExpression
+    : TAILREC_KEYWORD? name=lambdaName patternExpression* EQUALS lambdaExpression
     ;
 
 lambdaExpression
@@ -55,10 +55,11 @@ lambdaExpression
 
 lambdaApplicationOperand
     : terminal=lambdaLiteral
-    | LEARN_KEYWORD
+    | LEARN_KEYWORD expressionOptions?
     | LAMBDA lambdaName+ DOT body=lambdaExpression
     | LET_KEYWORD letBindings IN_KEYWORD body=lambdaExpression
     | REC_KEYWORD name=lambdaName IN_KEYWORD body=lambdaExpression
+    | CASE_KEYWORD expr=lambdaExpression OF_KEYWORD casesExpr
     | LBR expr=lambdaExpression COLON type=parametrisedTypeDeclaration RBR
     | LBR inner=lambdaExpression RBR
     ;
@@ -68,6 +69,14 @@ letBindings
     ;
 letBinding
     : lambdaName EQUALS lambdaExpression
+    ;
+
+casesExpr
+    : caseExpr (COMMA caseExpr)*
+    ;
+
+caseExpr
+    : patternExpression ARROW lambdaExpression
     ;
 
 lambdaTypeDeclaration
@@ -115,12 +124,24 @@ lambdaLiteral
     | TYPE_NAME
     ;
 
+expressionOptions
+    : LCBR expressionOption (COMMA expressionOption)* RCBR
+    ;
+
+expressionOption
+    : name=EXPR_NAME EQUALS value=OPTION_NUMBER
+    ;
+
 // Whitespace
 WS : [\t \r\n]+ -> skip;
+
 
 // Identifiers
 TYPE_NAME : UPPER_CASE NAME_CHARACTERS*;
 EXPR_NAME : LOWER_CASE NAME_CHARACTERS*;
+
+// Options
+OPTION_NUMBER : DIGIT+;
 
 // Keywords
 TYPE_KEYWORD : '@type';
@@ -129,11 +150,16 @@ LET_KEYWORD: '@let';
 IN_KEYWORD: '@in';
 FORALL_KEYWORD: '@forall';
 REC_KEYWORD : '@rec';
+CASE_KEYWORD : '@case';
+OF_KEYWORD : '@of';
+TAILREC_KEYWORD : '@tailrec';
 
 // Special characters
 EQUALS : '=';
 LBR : '(';
 RBR : ')';
+LCBR : '{';
+RCBR : '}';
 COMMA : ',';
 TYPE_PLUS : '|';
 LAMBDA : '\\';
@@ -145,7 +171,7 @@ SEMICOLON : ';';
 // Comments
 COMMENT : '--' ~('\r' | '\n')* -> skip;
 
-fragment UPPER_CASE : [A-Z];
-fragment LOWER_CASE : [a-z];
-fragment DIGIT : [0-9];
+fragment UPPER_CASE : ('A'..'Z');
+fragment LOWER_CASE : ('a'..'z');
+fragment DIGIT : ('0'..'9');
 fragment NAME_CHARACTERS : LOWER_CASE | UPPER_CASE | DIGIT | '_';

@@ -1,30 +1,17 @@
 from abc import abstractmethod
 
-import torch
-
 
 class BaseTypeSpec:
     """
     Base specification of type.
 
-    Type has size, start and end positions in structure of a bigger type,
-    supports iteration over values and can be transformed to a tensor that
-    contains all values of type as rows
+    Type has size, can be instantiated, supports iteration over values and
+    can be transformed to a TensorTree that contains all values of type as rows.
     """
 
-    def __init__(self, start, end, size=None):
-        if size is None:
-            size = end - start
-        self.start = start
-        self.end = end
-        self.size = size
-
     @abstractmethod
-    def __iter__(self):
+    def __eq__(self, o: object):
         pass
-
-    def to_tensor(self):
-        return torch.cat(list(self))
 
 
 class TypeSpec(BaseTypeSpec):
@@ -33,57 +20,58 @@ class TypeSpec(BaseTypeSpec):
     """
 
     def __init__(self, operands):
-        super().__init__(operands[0].start, operands[-1].end)
         self.operands = operands
 
-    def calc_presence(self, data, offset=0):
-        presences = torch.cat([spec.calc_presence(data, spec.start + offset) for spec in self.operands], 1)
-        return torch.sum(presences, 1, keepdim=True)
+    def __eq__(self, o: object):
+        return isinstance(o, TypeSpec) and self.operands == o.operands
 
-    def __iter__(self):
-        for operand in self.operands:
-            for tensor in operand:
-                to_cat = []
-                if operand.start > self.start:
-                    to_cat.append(torch.zeros([1, operand.start - self.start]))
-                to_cat.append(tensor)
-                if self.end > operand.end:
-                    to_cat.append(torch.zeros([1, self.end - operand.end]))
-                yield torch.cat(to_cat, 1)
+    def __repr__(self):
+        return 'TypeSpec(' + str(self.operands) + ')'
 
 
 class LitSpec(BaseTypeSpec):
     """
-    Object representing type literal
+    Object representing type literal. It's size is 1 and literal doesn't depend on instantiation.
     """
 
-    def __init__(self, start):
-        super().__init__(start, start + 1)
+    def __eq__(self, o: object):
+        # All LitSpecs are equal
+        return isinstance(o, LitSpec)
 
-    def calc_presence(self, data, offset=0):
-        presence = data.narrow(1, offset, 1)
+    def __repr__(self):
+        return 'LitSpec()'
 
-        return presence
 
-    def __iter__(self):
-        yield torch.Tensor([[1]])
+class VarSpec(BaseTypeSpec):
+    """
+    Object representing type variable. It has no size, cannot be iterated over, but can be instantiated
+    """
+    def __init__(self, name):
+        self.name = name
+
+    def __eq__(self, o: object):
+        return isinstance(o, VarSpec) and self.name == o.name
+
+    def __repr__(self):
+        return self.name
 
 
 class ExtSpec(BaseTypeSpec):
     """
-    Object representing occurrence of existing data type in the structure of other type
+    Object representing type that was defined earlier. Can have parameters
     """
 
-    def __init__(self, spec, start):
-        super().__init__(start, start + spec.size)
-        self.spec = spec
+    def __init__(self, name, **kwargs):
+        self.name = name
+        self.args = kwargs
 
-    def calc_presence(self, data, offset=0):
-        return self.spec.calc_presence(data, offset)
+    def __eq__(self, o):
+        return isinstance(o, ExtSpec) and self.name == o.name and self.args == o.args
 
-    def __iter__(self):
-        for tensor in self.spec:
-            yield tensor
+    def __repr__(self):
+        if len(self.args) == 0:
+            return self.name
+        return '(' + self.name + ' ' + ' '.join(map(lambda t: str(t), self.args.values())) + ')'
 
 
 class ProdSpec(BaseTypeSpec):
@@ -91,26 +79,23 @@ class ProdSpec(BaseTypeSpec):
     Object representing product of types
     """
 
-    def __init__(self, operands, start):
-        super().__init__(start, start + sum(map(lambda spec: spec.size, operands)))
+    def __init__(self, operands):
         self.operands = operands
 
-    def calc_presence(self, data, offset=0):
-        presences = torch.cat([spec.calc_presence(data, spec.start + offset) for spec in self.operands], 1)
-        return torch.prod(presences, 1, keepdim=True)
+    def __eq__(self, o: object):
+        return isinstance(o, ProdSpec) and self.operands == o.operands
 
-    def __iter__(self):
-        for tensor in ProdSpec._recursive_iter(self.operands, []):
-            yield tensor
+    def __repr__(self):
+        return 'ProdSpec(' + str(self.operands) + ')'
 
-    @staticmethod
-    def _recursive_iter(operands, collected):
-        if len(operands) == 0:
-            yield torch.cat(collected, 1)
-        else:
-            first = operands[0]
-            rest = operands[1:]
-            for tensor in first:
-                new_list = [*collected, tensor]
-                for result_tensor in ProdSpec._recursive_iter(rest, new_list):
-                    yield result_tensor
+
+def create_empty_type():
+    return TypeSpec([])
+
+
+def create_unit_type():
+    return TypeSpec([LitSpec()])
+
+
+def create_tuple_type(types):
+    return TypeSpec([ProdSpec(types)])

@@ -49,18 +49,18 @@ fun mergeSubstitutions(
     }
     val result = mutableMapOf<String, RawType>()
     val equations = intersection.map { (variable, list) ->
-        if (list.size == 1) {
+        result[variable] = list.first()
+        val first = list.first().toAlgebraicTerm()
+        listOf(AlgebraicEquation(AlgebraicTerm.Variable(variable), first)) + if (list.size == 1) {
             // Expression appears once - can add to result without unification
-            result[variable] = list.first()
             emptyList()
         } else {
             // The same expression appears in many substitutions - have to unify
-            val first = list.first().toAlgebraicTerm()
             list.drop(1).map { AlgebraicEquation(first, it.toAlgebraicTerm()) }
         }
     }.flatMap { it }
     val solution = equations.inferTypes(knownTypes).mapValues { (_, v) -> RawType.fromAlgebraicTerm(v) }
-    return result.mapValues { (_, v) -> v.replace(solution) } + solution
+    return result.mapValues { (_, v) -> v.replaceLiterals(solution) } + solution
 }
 
 /**

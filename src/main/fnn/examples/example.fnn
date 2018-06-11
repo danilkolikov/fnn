@@ -1,0 +1,6 @@
+-- Type Definition
+@type Bool = True | False;
+
+-- Pattern Matching
+if True x y = x;
+if False x y = y;

@@ -1,0 +1,45 @@
+-- Types for the tape
+@type LList a = LEmpty | LCons (LList a) a;
+@type RList a = RCons a (RList a) | REmpty;
+@type Tape a = MkTape (LList a) a (RList a);
+
+-- Types for commands of the machine
+@type EvalState st = Stop | Continue st;
+@type Move = Left | Stay | Right;
+@type TransRes s a = MkRes (EvalState s) a Move;
+
+-- Types for states and alphabet
+@type State = Start;
+@type Alphabet = Blank | Zero | One;
+
+-- Movement of tape
+moveLeft (MkTape LEmpty x r) = MkTape LEmpty Blank (RCons x r);
+moveLeft (MkTape (LCons l x) y r) = MkTape l x (RCons y r);
+
+moveRight (MkTape l x REmpty) = MkTape (LCons l x) Blank REmpty;
+moveRight (MkTape l x (RCons y r)) = MkTape (LCons l x) y r;
+
+makeMove tape Stay = tape;
+makeMove tape Left = moveLeft tape;
+makeMove tape Right = moveRight tape;
+
+-- The machine itself
+@type machine = (s -> a -> TransRes s a) -> Tape a -> s -> Tape a;
+machine transition (MkTape l a r) s = @case (transition s a) @of
+       (MkRes Stop y m) -> makeMove (MkTape l y r) m,
+       (MkRes (Continue st) y m) -> machine transition (makeMove (MkTape l y r) m) st;
+
+-- Required algorithm
+transitionRequired Start Blank = MkRes Stop Blank Stay;
+transitionRequired Start Zero = MkRes (Continue Start) One Stay;
+transitionRequired Start One = MkRes (Continue Start) Zero Stay;
+
+-- Simple learning task
+@type transitionSimple = State -> Alphabet -> TransRes State Alphabet;
+transitionSimple Start Blank = MkRes Stop (@learn Blank) Stay;
+transitionSimple Start Zero = MkRes (Continue Start) (@learn Zero) Right;
+transitionSimple Start One = MkRes (Continue Start) (@learn One) Right;
+
+-- Difficult learning task
+@type transitionHard = State -> Alphabet -> TransRes State Alphabet;
+transitionHard Start a = @learn{from_depth=2, to_depth=4} a;

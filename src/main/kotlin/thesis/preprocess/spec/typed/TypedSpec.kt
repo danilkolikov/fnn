@@ -1,12 +1,11 @@
-package thesis.preprocess.spec
+package thesis.preprocess.spec.typed
 
 import thesis.preprocess.expressions.LambdaName
 import thesis.preprocess.expressions.TypeName
-import thesis.preprocess.expressions.TypeVariableName
 import thesis.preprocess.expressions.Typed
 import thesis.preprocess.expressions.type.Type
 import thesis.preprocess.results.InstanceSignature
-import thesis.preprocess.results.TypeSignature
+import thesis.preprocess.spec.DataPointer
 import thesis.preprocess.spec.parametrised.ParametrisedTrainableSpec
 
 
@@ -15,16 +14,16 @@ import thesis.preprocess.spec.parametrised.ParametrisedTrainableSpec
  *
  * @author Danil Kolikov
  */
-sealed class Spec : Typed<Type> {
+sealed class TypedSpec : Typed<Type> {
 
-    sealed class Variable : Spec() {
+    sealed class Variable : TypedSpec() {
 
         data class Object(
                 override val type: Type,
-                val positions: Pair<Int, Int>
+                val position: Int
         ) : Variable() {
 
-            override fun toString() = "[$type: $positions]"
+            override fun toString() = "[$type: $position]"
         }
 
         data class Function(
@@ -38,32 +37,28 @@ sealed class Spec : Typed<Type> {
 
         data class External(
                 val signature: InstanceSignature,
-                val typeSignature: TypeSignature,
-                override val type: Type,
-                val function: Spec
-        ) : Spec.Variable()
+                override val type: Type
+        ) : TypedSpec.Variable()
     }
 
     data class Object(
             override val type: Type,
-            val size: Int,
+            val toType: Type.Application,
             val position: Int
-    ) : Spec() {
+    ) : TypedSpec() {
 
         override fun toString() = "[$type: $position]"
     }
 
-    sealed class Function : Spec() {
+    sealed class Function : TypedSpec() {
 
         abstract val closurePointer: DataPointer
 
         data class Trainable(
                 val instanceSignature: InstanceSignature,
-                val instancePosition: Int,
-                val trainableSpec: ParametrisedTrainableSpec,
+                val trainableTypedSpec: ParametrisedTrainableSpec,
                 override val type: Type,
-                val dataPointer: DataPointer,
-                val typeParamsSize: Map<TypeVariableName, Int>
+                val dataPointer: DataPointer
         ) : Function() {
             override val closurePointer = DataPointer.START // Assuming trainable to be defined in global scope
 
@@ -73,9 +68,8 @@ sealed class Spec : Typed<Type> {
         data class Constructor(
                 val name: TypeName,
                 override val type: Type,
-                val fromTypeSize: Int,
-                val toTypeSize: Int,
-                val offset: Int
+                val toType: Type.Application,
+                val position: Int
         ) : Function() {
 
             override val closurePointer = DataPointer.START // Defined in global scope
@@ -84,27 +78,25 @@ sealed class Spec : Typed<Type> {
         }
 
         data class Guarded(
-                val name: LambdaName,
                 override val type: Type,
-                val cases: List<Case>
+                val cases: List<Case>,
+                override val closurePointer: DataPointer
         ) : Function() {
 
-            override val closurePointer = DataPointer.START // Defined in the global scope
-
-            override fun toString() = "($name = ${cases.joinToString(", ")})"
+            override fun toString() = "(${cases.joinToString(", ")})"
 
             class Case(
-                    val patterns: List<DataPattern>,
-                    val body: Spec
+                    val pattern: PatternInstance,
+                    val body: TypedSpec
             ) {
 
-                override fun toString() = "${patterns.joinToString(" ")} -> $body"
+                override fun toString() = "$pattern -> $body"
             }
         }
 
         data class Anonymous(
                 override val type: Type,
-                val body: Spec,
+                val body: TypedSpec,
                 override val closurePointer: DataPointer
         ) : Function() {
 
@@ -113,7 +105,8 @@ sealed class Spec : Typed<Type> {
 
         data class Recursive(
                 val name: LambdaName,
-                val body: Spec,
+                val body: TypedSpec,
+                val isTailRecursive: Boolean,
                 override val type: Type,
                 override val closurePointer: DataPointer
         ) : Function() {
@@ -124,12 +117,12 @@ sealed class Spec : Typed<Type> {
 
     data class Application(
             override val type: Type,
-            val operands: List<Spec>,
+            val operands: List<TypedSpec>,
             val call: List<Int>,
             val constants: List<Int>,
             val data: List<Int>,
             val functions: List<Int>
-    ) : Spec() {
+    ) : TypedSpec() {
 
         override fun toString() = "(${operands.joinToString(" ")})"
     }

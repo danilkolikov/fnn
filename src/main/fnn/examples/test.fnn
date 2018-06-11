@@ -1,0 +1,8 @@
+@type Bool = False | True;
+@type Answer = Yes | No | Maybe;
+@type Pair a b = MkPair a b;
+@type N = Z | S N;
+
+if flag x y = @case flag @of
+    True -> x,
+    False -> y;

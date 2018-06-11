@@ -20,7 +20,8 @@ sealed class LambdaProgramExpression
 data class LambdaDefinition(
         val name: LambdaName,
         val patterns: List<UntypedPattern>,
-        val expression: UntypedLambda
+        val expression: UntypedLambda,
+        val isTailRecursive: Boolean
 ) : LambdaProgramExpression()
 
 data class TypeDefinition(

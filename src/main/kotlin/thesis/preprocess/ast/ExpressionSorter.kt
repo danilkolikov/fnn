@@ -22,7 +22,11 @@ class ExpressionSorter : Processor<LambdaProgram, SortedExpressions> {
             data.expressions.filterIsInstance(LambdaDefinition::class.java)
                     .groupByTo(LinkedHashMap(), { it.name })
                     .map { (name, list) ->
-                        name to list.map { LambdaWithPatterns(it.patterns, it.expression) }
+                        name to list.map { LambdaWithPatterns(
+                                it.patterns,
+                                it.expression,
+                                it.isTailRecursive
+                        ) }
                     }
                     .toMap(LinkedHashMap())
     )

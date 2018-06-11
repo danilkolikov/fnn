@@ -4,7 +4,7 @@ import thesis.preprocess.expressions.*
 import thesis.preprocess.expressions.type.Parametrised
 import thesis.preprocess.expressions.type.Type
 import thesis.preprocess.expressions.type.instantiate
-import thesis.preprocess.expressions.type.raw.RawType
+import thesis.preprocess.results.InstanceSignature
 
 /**
  * Representation of algebraic type. Has inferred kind, structure and types of constructors
@@ -16,37 +16,23 @@ class AlgebraicType(
         val parameters: List<TypeVariableName>,
         val kind: Kind,
         val structure: Structure,
-        val constructors: LinkedHashMap<TypeName, Parametrised<Type>>
+        val recursive: Boolean,
+        val constructors: LinkedHashMap<TypeName, Constructor>
 ) {
 
-    fun instantiate(map: Map<TypeVariableName, Type>): AlgebraicType {
-        val operandsMap = map.mapValues { (_, v) -> v.toOperand() }
-        val replacedStructure = structure.replaceVariables(operandsMap)
-        val variables = replacedStructure.getVariables()
-        val kind = Kind.createBasic(variables.size)
-        val newConstructors = constructors
-                .mapValuesTo(LinkedHashMap()) { (_, v) -> v.instantiate(map) }
-        return AlgebraicType(
-                name,
-                variables.toList(),
-                kind,
-                replacedStructure,
-                newConstructors
-        )
-    }
-
-    val signature: List<String>
+    val signature: InstanceSignature
         get() = listOf(name)
 
     override fun toString() = "$name ${parameters.joinToString(" ")} = $structure"
 
+    data class Constructor(
+            val type: Parametrised<Type>,
+            val position: Int
+    )
+
     data class Structure(
             val operands: List<SumOperand>
     ) : Expression {
-
-        fun replaceVariables(map: Map<TypeVariableName, ProductOperand>) = Structure(
-                operands.map { it.replaceVariables(map) }
-        )
 
         val size: Int?
             get() {
@@ -108,7 +94,7 @@ class AlgebraicType(
 
             abstract fun getVariables(): Set<TypeVariableName>
 
-            abstract fun toRaw(): RawType
+            abstract fun toType(): Type
 
             abstract val size: Int?
 
@@ -118,9 +104,9 @@ class AlgebraicType(
 
                 override fun replace(map: Map<String, ProductOperand>) = map[name] ?: this
 
-                override fun getVariables() = setOf(name)
+                override fun toType() = Type.Variable(name)
 
-                override fun toRaw() = RawType.Variable(name)
+                override fun getVariables() = setOf(name)
 
                 override val size: Int?
                     get() = null
@@ -138,12 +124,9 @@ class AlgebraicType(
                         arguments.map { it.replace(map) }
                 )
 
-                override fun getVariables() = arguments.flatMap { it.getVariables() }.toSet()
+                override fun toType() = Type.Application(type, arguments.map { it.toType() })
 
-                override fun toRaw() = RawType.Application(
-                        type.name,
-                        arguments.map { it.toRaw() }
-                )
+                override fun getVariables() = arguments.flatMap { it.getVariables() }.toSet()
 
                 override val size: Int?
                     get() {
@@ -159,16 +142,5 @@ class AlgebraicType(
                 else "(${type.name} ${arguments.joinToString(" ")})"
             }
         }
-    }
-
-    private fun Type.toOperand(): Structure.ProductOperand = when (this) {
-        is Type.Variable -> Structure.ProductOperand.Variable(name)
-        is Type.Application -> Structure.ProductOperand.Application(
-                type,
-                args.map { it.toOperand() }
-        )
-        is Type.Function -> throw UnsupportedOperationException(
-                "Can't instantiate algebraic type by function type"
-        )
     }
 }

@@ -174,13 +174,6 @@ Bool = TypeSpec(operands=[
     LitSpec(1),
 ])
 
-# Poly-net specifications
-swap_0_polynet = TrainablePolyNet([2, 'a', 'b'], ['b', 2, 'a'])
-
-# Update instances - this method should be called after each backprop on net with polymorphic @learn
-def update_instances():
-    swap_0_polynet.update_instances()
-    
 # Net Specifications
 Just_Bool_net = ConstructorLayer(2, 3, 0)
 

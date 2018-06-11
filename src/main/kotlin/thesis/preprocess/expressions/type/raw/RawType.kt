@@ -95,7 +95,8 @@ sealed class RawType : Expression, Implication<RawType> {
             return Type.Application(type, args.map { it.toType(typeDefinitions) })
         }
 
-        override fun toAlgebraicTerm() = AlgebraicTerm.Function(name, args.map { it.toAlgebraicTerm() })
+        override fun toAlgebraicTerm() = if (args.isEmpty()) AlgebraicTerm.Variable(name) else
+            AlgebraicTerm.Function(name, args.map { it.toAlgebraicTerm() })
 
         override fun bindLiterals(definedLiterals: Set<TypeName>) = Application(
                 name,

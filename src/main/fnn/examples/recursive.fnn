@@ -1,0 +1,43 @@
+@type N = Z | S N;
+@type List a = Nil | Cons a (List a);
+@type Pair a b = MkPair a b;
+
+@type id = List N -> List N;
+id x = x;
+
+plusOne x = S x;
+
+minusOne (S x) = x;
+
+plus Z b = b;
+plus (S x) b = S (plus x b);
+
+mul Z b = Z;
+mul (S x) b = plus (mul x b) b;
+
+pow a Z = S Z;
+pow a (S b) = mul a (pow a b);
+
+reduce f y Nil = y;
+reduce f y (Cons x t) = f x (reduce f y t);
+
+sum x = @let id = (@let id = \x . x @in \x. id x) @in reduce plus (id Z) (id x);
+
+prod x = reduce mul (S Z) x;
+
+@type Tree a = Leaf a | Node (Tree a) (Tree a);
+
+size (Leaf x) = S Z;
+size (Node a b) = plus (size a) (size b);
+
+max Z Z = Z;
+max (S a) Z = S a;
+max Z (S b) = S b;
+max (S a) (S b) = S (max a b);
+
+height (Leaf x) = Z;
+height (Node a b) = S (max (height a) (height b));
+
+@type Identity a = MkIdentity a;
+@type Foo = MkFoo (Identity N);
+
